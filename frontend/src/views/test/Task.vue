@@ -10,6 +10,7 @@
       <div class="table-toolbar">
         <div class="toolbar-left">
           <el-button type="primary" icon="Plus" @click="openDialog('add')">新建任务</el-button>
+          <el-button type="success" icon="VideoPlay" :disabled="!selectedIds.length" @click="batchRun">立刻执行</el-button>
           <el-button type="danger" icon="Delete" :disabled="!selectedIds.length" @click="batchDelete">批量删除</el-button>
         </div>
         <div class="toolbar-right">
@@ -65,8 +66,14 @@
             />
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="scope">
+            <el-button type="primary" size="small" link @click="openCaseSelectDialog(scope.row)">
+              <el-icon><Document /></el-icon> 选择用例
+            </el-button>
+            <el-button type="success" size="small" link @click="openExecutionDialog(scope.row)">
+              <el-icon><List /></el-icon> 查看历史
+            </el-button>
             <el-button type="primary" size="small" link @click="openDialog('edit', scope.row)">
               <el-icon><Edit /></el-icon> 编辑
             </el-button>
@@ -124,14 +131,251 @@
         <el-button type="primary" @click="handleSubmit">确定</el-button>
       </template>
     </el-dialog>
+    
+    <!-- 选择用例对话框 -->
+    <el-dialog v-model="caseSelectVisible" title="选择用例" width="90%" :close-on-click-modal="false">
+      <div class="case-select-toolbar">
+        <el-input 
+          v-model="caseKeyword" 
+          placeholder="搜索用例编号/名称" 
+          style="width: 300px;"
+          @keyup.enter="searchCases"
+          clearable
+          @clear="searchCases"
+        >
+          <template #prefix>
+            <el-icon><Search /></el-icon>
+          </template>
+        </el-input>
+      </div>
+      
+      <el-table 
+        :data="caseTableData" 
+        style="width: 100%"
+        @selection-change="handleCaseSelectionChange"
+        :header-cell-style="{ background: '#f5f7fa' }"
+        row-key="id"
+        :reserve-selection="true"
+      >
+        <el-table-column type="selection" width="55" :reserve-selection="true" />
+        <el-table-column prop="caseNo" label="用例编号" min-width="140" show-overflow-tooltip />
+        <el-table-column prop="name" label="用例名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="designer" label="设计者" width="100">
+          <template #default="scope">
+            {{ scope.row.designerNickname || scope.row.designer || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="caseType" label="用例性质" width="90">
+          <template #default="scope">
+            <el-tag :type="scope.row.caseType === 'positive' ? 'success' : 'warning'" size="small">
+              {{ scope.row.caseType === 'positive' ? '正例' : '反例' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+      
+      <div class="pagination-container">
+        <el-pagination
+          v-model:current-page="casePageNum"
+          v-model:page-size="casePageSize"
+          :total="caseTotal"
+          :page-sizes="[10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper, refresh"
+          @size-change="handleCaseSizeChange"
+          @current-change="handleCaseCurrentChange"
+        />
+      </div>
+      
+      <template #footer>
+        <el-button @click="caseSelectVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveCaseSelection">确定</el-button>
+      </template>
+    </el-dialog>
+    
+    <!-- 查看执行历史对话框 -->
+    <el-dialog v-model="executionVisible" title="执行历史" width="90%" :close-on-click-modal="false">
+      <el-divider>任务执行记录</el-divider>
+      <el-table 
+        :data="executionList" 
+        style="width: 100%"
+        :header-cell-style="{ background: '#f5f7fa' }"
+        :row-class-name="taskExecutionTableRowClassName"
+        @row-click="showTaskCaseExecutions"
+      >
+        <el-table-column prop="taskName" label="任务名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="executor" label="执行人" width="100">
+          <template #default="scope">
+            {{ scope.row.executorNickname || scope.row.executor || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="startTime" label="开始时间" width="170">
+          <template #default="scope">
+            {{ formatDateTime(scope.row.startTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="duration" label="耗时" width="80">
+          <template #default="scope">
+            {{ scope.row.duration ? (scope.row.duration / 1000).toFixed(2) + 's' : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="scope">
+            <el-tag :type="getExecutionStatusType(scope.row.status)" size="small">
+              {{ getExecutionStatusText(scope.row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="aiTotalTokenUsed" width="150">
+          <template #header>
+            <span>AI token消耗
+              <el-tooltip content="估算规则：中文每2字符≈1 token，英文每4字符≈1 token" placement="top">
+                <el-icon style="margin-left: 4px; cursor: pointer; color: var(--el-color-info);"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
+          <template #default="scope">
+            {{ scope.row.aiTotalTokenUsed || 0 }}
+          </template>
+        </el-table-column>
+      </el-table>
+      
+      <div class="pagination-container">
+        <el-pagination
+          v-model:current-page="execPageNum"
+          v-model:page-size="execPageSize"
+          :total="execTotal"
+          :page-sizes="[5, 10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper, refresh"
+          @size-change="loadExecutions"
+          @current-change="loadExecutions"
+        />
+      </div>
+      
+      <el-divider v-if="taskCaseExecutionList.length > 0">用例执行记录</el-divider>
+      <el-table 
+        v-if="taskCaseExecutionList.length > 0"
+        :data="taskCaseExecutionList" 
+        style="width: 100%"
+        :header-cell-style="{ background: '#f5f7fa' }"
+        :row-class-name="caseExecutionTableRowClassName"
+        @row-click="showCaseStepExecutions"
+      >
+        <el-table-column prop="caseName" label="用例名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="executor" label="执行人" width="100">
+          <template #default="scope">
+            {{ scope.row.executor || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="startTime" label="开始时间" width="170">
+          <template #default="scope">
+            {{ formatDateTime(scope.row.startTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="duration" label="耗时" width="80">
+          <template #default="scope">
+            {{ scope.row.duration ? (scope.row.duration / 1000).toFixed(2) + 's' : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="scope">
+            <el-tag :type="getExecutionStatusType(scope.row.status)" size="small">
+              {{ getExecutionStatusText(scope.row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="aiTotalTokenUsed" width="150">
+          <template #header>
+            <span>AI token消耗
+              <el-tooltip content="估算规则：中文每2字符≈1 token，英文每4字符≈1 token" placement="top">
+                <el-icon style="margin-left: 4px; cursor: pointer; color: var(--el-color-info);"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
+          <template #default="scope">
+            {{ scope.row.aiTotalTokenUsed || 0 }}
+          </template>
+        </el-table-column>
+      </el-table>
+      
+      <el-divider v-if="stepExecutionList.length > 0">步骤执行记录</el-divider>
+      <el-table 
+        v-if="stepExecutionList.length > 0"
+        :data="stepExecutionList" 
+        style="width: 100%"
+        :header-cell-style="{ background: '#f5f7fa' }"
+      >
+        <el-table-column prop="stepNo" label="步骤号" width="70" />
+        <el-table-column prop="stepDescription" label="步骤描述" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="startTime" label="开始时间" width="170">
+          <template #default="scope">
+            {{ formatDateTime(scope.row.startTime) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="duration" label="耗时" width="80">
+          <template #default="scope">
+            {{ scope.row.duration ? (scope.row.duration / 1000).toFixed(2) + 's' : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="status" label="执行状态" width="90">
+          <template #default="scope">
+            <el-tag :type="getStepStatusType(scope.row.status)" size="small">
+              {{ getStepStatusText(scope.row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="assertionStatus" label="断言状态" width="100">
+          <template #default="scope">
+            <el-tag :type="getAssertionStatusType(scope.row.assertionStatus)" size="small">
+              {{ getAssertionStatusText(scope.row.assertionStatus) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="aiResult" label="AI断言描述" min-width="180" show-overflow-tooltip>
+          <template #default="scope">
+            <span v-if="scope.row.aiResult" :class="{'assertion-success': scope.row.aiResult.includes('✅'), 'assertion-failed': scope.row.aiResult.includes('❌'), 'assertion-warning': scope.row.aiResult.includes('⚠️')}">
+              {{ scope.row.aiResult }}
+            </span>
+            <span v-else class="text-muted">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="aiTokenUsed" width="150">
+          <template #header>
+            <span>AI token消耗
+              <el-tooltip content="估算规则：中文每2字符≈1 token，英文每4字符≈1 token" placement="top">
+                <el-icon style="margin-left: 4px; cursor: pointer; color: var(--el-color-info);"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
+          <template #default="scope">
+            {{ scope.row.aiTokenUsed || 0 }}
+          </template>
+        </el-table-column>
+        <el-table-column label="截图" width="70">
+          <template #default="scope">
+            <el-button v-if="scope.row.screenshot" size="small" @click.stop="showScreenshot(scope.row.screenshot)">查看</el-button>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+      </el-table>
+      
+      <template #footer>
+        <el-button @click="executionVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
+    
+    <!-- 截图预览对话框 -->
+    <el-dialog v-model="screenshotVisible" title="执行截图" width="800px">
+      <img v-if="currentScreenshot" :src="currentScreenshot" style="width: 100%;" />
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, Plus, Edit, Delete } from '@element-plus/icons-vue'
+import { Search, Plus, Edit, Delete, Document, List, QuestionFilled, VideoPlay, Loading } from '@element-plus/icons-vue'
 import request from '@/api/request'
+import { getExecutionList, getStepExecutions } from '@/api/testCaseExecution'
 
 // 表格数据
 const tableData = ref([])
@@ -159,6 +403,257 @@ const formRules = {
     { required: true, message: '请输入任务名称', trigger: 'blur' },
     { min: 2, max: 200, message: '任务名称长度在 2 到 200 个字符', trigger: 'blur' }
   ]
+}
+
+// 选择用例对话框
+const caseSelectVisible = ref(false)
+const currentTask = ref(null)
+const caseTableData = ref([])
+const caseTotal = ref(0)
+const casePageNum = ref(1)
+const casePageSize = ref(20)
+const caseKeyword = ref('')
+const selectedCaseIds = ref([])
+
+// 执行历史对话框
+const executionVisible = ref(false)
+const executionList = ref([])
+const execTotal = ref(0)
+const execPageNum = ref(1)
+const execPageSize = ref(10)
+const activeTaskExecutionRow = ref(null)
+const taskCaseExecutionList = ref([])
+const activeCaseExecutionRow = ref(null)
+const stepExecutionList = ref([])
+const screenshotVisible = ref(false)
+const currentScreenshot = ref('')
+
+// 获取执行状态类型
+const getExecutionStatusType = (status) => {
+  const map = {
+    pending: 'info',
+    running: 'primary',
+    success: 'success',
+    failed: 'danger',
+    stopped: 'warning'
+  }
+  return map[status] || 'info'
+}
+
+// 获取执行状态文本
+const getExecutionStatusText = (status) => {
+  const map = {
+    pending: '待执行',
+    running: '执行中',
+    success: '成功',
+    failed: '失败',
+    stopped: '已停止'
+  }
+  return map[status] || status
+}
+
+// 获取步骤执行状态对应的tag类型
+const getStepStatusType = (status) => {
+  if (status === 'success') return 'success'
+  if (status === 'failed') return 'danger'
+  if (status === 'pending') return 'info'
+  return 'info'
+}
+
+// 获取步骤执行状态显示文本
+const getStepStatusText = (status) => {
+  if (status === 'success') return '成功'
+  if (status === 'failed') return '失败'
+  if (status === 'pending') return '未执行'
+  return status || '-'
+}
+
+// 获取断言状态对应的tag类型
+const getAssertionStatusType = (status) => {
+  if (status === 'success') return 'success'
+  if (status === 'none') return 'info'
+  if (status === 'failed') return 'danger'
+  return 'info'
+}
+
+// 获取断言状态显示文本
+const getAssertionStatusText = (status) => {
+  if (status === 'success') return '断言成功'
+  if (status === 'none') return '无'
+  if (status === 'failed') return '断言失败'
+  return status || '-'
+}
+
+// 任务执行记录表格行样式
+const taskExecutionTableRowClassName = ({ row }) => {
+  return row.id === activeTaskExecutionRow.value ? 'success-row' : ''
+}
+
+// 用例执行记录表格行样式
+const caseExecutionTableRowClassName = ({ row }) => {
+  return row.id === activeCaseExecutionRow.value ? 'success-row' : ''
+}
+
+// 点击任务执行记录，加载该任务执行记录关联的用例执行记录
+const showTaskCaseExecutions = async (row) => {
+  activeTaskExecutionRow.value = row.id
+  taskCaseExecutionList.value = []
+  stepExecutionList.value = []
+  activeCaseExecutionRow.value = null
+  
+  try {
+    // 直接获取该任务执行记录关联的用例执行记录
+    const res = await getExecutionList({ pageNum: 1, pageSize: 100, taskExecutionId: row.id })
+    if (res.code === 200 && res.data && res.data.records) {
+      taskCaseExecutionList.value = res.data.records
+      // 自动选中第一条
+      if (taskCaseExecutionList.value.length > 0) {
+        await showCaseStepExecutions(taskCaseExecutionList.value[0])
+      }
+    }
+  } catch (error) {
+    console.error('加载任务用例执行记录失败:', error)
+  }
+}
+
+// 点击用例执行记录，加载步骤执行记录
+const showCaseStepExecutions = async (row) => {
+  activeCaseExecutionRow.value = row.id
+  try {
+    const res = await getStepExecutions(row.id, 1, 100)
+    if (res.code === 200) {
+      stepExecutionList.value = Array.isArray(res.data) ? res.data : (res.data.records || [])
+    }
+  } catch (error) {
+    ElMessage.error('加载步骤执行记录失败')
+  }
+}
+
+// 显示截图
+const showScreenshot = (screenshot) => {
+  // 检查是否是默认的占位图（绿色小方块）
+  if (!screenshot || screenshot.includes("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==")) {
+    ElMessage.warning("暂无截图")
+    return
+  }
+  currentScreenshot.value = screenshot
+  screenshotVisible.value = true
+}
+
+// ==================== 选择用例相关 ====================
+const openCaseSelectDialog = async (task) => {
+  currentTask.value = task
+  caseSelectVisible.value = true
+  casePageNum.value = 1
+  caseKeyword.value = ''
+  selectedCaseIds.value = []
+  
+  await Promise.all([
+    fetchCaseList(),
+    fetchSelectedCaseIds()
+  ])
+}
+
+const fetchCaseList = async () => {
+  try {
+    const res = await request.get('/case/list', {
+      params: {
+        pageNum: casePageNum.value,
+        pageSize: casePageSize.value,
+        keyword: caseKeyword.value
+      }
+    })
+    if (res.code === 200) {
+      caseTableData.value = res.data.records || []
+      caseTotal.value = res.data.total || 0
+    } else {
+      ElMessage.error(res.message || '查询失败')
+    }
+  } catch (error) {
+    console.error('查询失败:', error)
+    ElMessage.error('查询失败')
+  }
+}
+
+const fetchSelectedCaseIds = async () => {
+  if (!currentTask.value) return
+  try {
+    const res = await request.get(`/test-task/${currentTask.value.id}/case-ids`)
+    if (res.code === 200) {
+      selectedCaseIds.value = res.data || []
+    }
+  } catch (error) {
+    console.error('获取关联用例失败:', error)
+  }
+}
+
+const searchCases = () => {
+  casePageNum.value = 1
+  fetchCaseList()
+}
+
+const handleCaseSelectionChange = (selection) => {
+  selectedCaseIds.value = selection.map(item => item.id)
+}
+
+const handleCaseSizeChange = (val) => {
+  casePageSize.value = val
+  fetchCaseList()
+}
+
+const handleCaseCurrentChange = (val) => {
+  casePageNum.value = val
+  fetchCaseList()
+}
+
+const saveCaseSelection = async () => {
+  if (!currentTask.value) return
+  try {
+    const res = await request.post(`/test-task/${currentTask.value.id}/case-ids`, selectedCaseIds.value)
+    if (res.code === 200) {
+      ElMessage.success('保存成功')
+      caseSelectVisible.value = false
+    } else {
+      ElMessage.error(res.message || '保存失败')
+    }
+  } catch (error) {
+    console.error('保存失败:', error)
+    ElMessage.error('保存失败')
+  }
+}
+
+// ==================== 执行历史相关 ====================
+const openExecutionDialog = (task) => {
+  currentTask.value = task
+  executionVisible.value = true
+  execPageNum.value = 1
+  activeTaskExecutionRow.value = null
+  taskCaseExecutionList.value = []
+  activeCaseExecutionRow.value = null
+  stepExecutionList.value = []
+  loadExecutions()
+}
+
+const loadExecutions = async () => {
+  if (!currentTask.value) return
+  try {
+    const res = await request.get('/test-task-execution/page', {
+      params: {
+        pageNum: execPageNum.value,
+        pageSize: execPageSize.value,
+        taskId: currentTask.value.id
+      }
+    })
+    if (res.code === 200) {
+      executionList.value = res.data.records || []
+      execTotal.value = res.data.total || 0
+    } else {
+      ElMessage.error(res.message || '查询失败')
+    }
+  } catch (error) {
+    console.error('查询失败:', error)
+    ElMessage.error('查询失败')
+  }
 }
 
 // 格式化日期时间
@@ -321,6 +816,32 @@ const handleDelete = (row) => {
   }).catch(() => {})
 }
 
+// 批量立刻执行
+const batchRun = () => {
+  ElMessageBox.confirm(
+    `确定要立刻执行选中的 ${selectedIds.value.length} 个任务吗？`,
+    '提示',
+    {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    }
+  ).then(async () => {
+    try {
+      const res = await request.post('/test-task/run/batch', selectedIds.value)
+      if (res.code === 200) {
+        ElMessage.success('已开始执行，请在执行历史中查看结果')
+        selectedIds.value = []
+      } else {
+        ElMessage.error(res.message || '执行失败')
+      }
+    } catch (error) {
+      console.error('执行失败:', error)
+      ElMessage.error('执行失败')
+    }
+  }).catch(() => {})
+}
+
 // 批量删除
 const batchDelete = () => {
   ElMessageBox.confirm(
@@ -376,10 +897,34 @@ onMounted(() => {
     }
   }
   
+  .case-select-toolbar {
+    margin-bottom: 20px;
+  }
+  
   .pagination-container {
     margin-top: 20px;
     display: flex;
     justify-content: flex-end;
   }
+}
+
+:deep(.el-table .success-row) {
+  background-color: #f0f9eb;
+}
+
+.assertion-success {
+  color: #67c23a;
+}
+
+.assertion-failed {
+  color: #f56c6c;
+}
+
+.assertion-warning {
+  color: #e6a23c;
+}
+
+.text-muted {
+  color: #909399;
 }
 </style>

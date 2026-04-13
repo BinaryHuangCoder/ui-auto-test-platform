@@ -30,6 +30,11 @@ public class TestCaseExecution {
     private Long caseId;
     
     /**
+     * 任务执行记录ID
+     */
+    private Long taskExecutionId;
+    
+    /**
      * 用例编号
      */
     private String caseNo;

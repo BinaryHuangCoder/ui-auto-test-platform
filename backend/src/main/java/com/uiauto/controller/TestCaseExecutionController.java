@@ -64,10 +64,13 @@ public class TestCaseExecutionController {
      * 执行测试用例（批量执行模式）
      * 
      * @param caseId 测试用例ID
+     * @param taskExecutionId 任务执行记录ID（可选）
      * @return 执行结果，包含执行ID
      */
     @PostMapping("/run/{caseId}")
-    public Result<String> executeTestCase(@PathVariable Long caseId) {
+    public Result<String> executeTestCase(
+            @PathVariable Long caseId,
+            @RequestParam(required = false) Long taskExecutionId) {
         TestCase testCase = testCaseService.getById(caseId);
         if (testCase == null) {
             return Result.error("用例不存在");
@@ -86,6 +89,7 @@ public class TestCaseExecutionController {
         // 创建执行记录
         TestCaseExecution execution = new TestCaseExecution();
         execution.setCaseId(caseId);
+        execution.setTaskExecutionId(taskExecutionId);
         execution.setCaseName(testCase.getName());
         execution.setDescription(testCase.getDescription());
         execution.setExecutor("admin");
@@ -576,6 +580,7 @@ public class TestCaseExecutionController {
      * @param pageNum 页码，默认1
      * @param pageSize 每页条数，默认10
      * @param caseId 用例ID（可选）
+     * @param taskExecutionId 任务执行记录ID（可选）
      * @param status 执行状态（可选）
      * @return 分页的执行记录列表，包含执行人昵称
      */
@@ -584,11 +589,15 @@ public class TestCaseExecutionController {
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize,
             @RequestParam(required = false) Long caseId,
+            @RequestParam(required = false) Long taskExecutionId,
             @RequestParam(required = false) String status) {
         Page<TestCaseExecution> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<TestCaseExecution> wrapper = new LambdaQueryWrapper<>();
         if (caseId != null) {
             wrapper.eq(TestCaseExecution::getCaseId, caseId);
+        }
+        if (taskExecutionId != null) {
+            wrapper.eq(TestCaseExecution::getTaskExecutionId, taskExecutionId);
         }
         if (status != null && !status.isEmpty()) {
             wrapper.eq(TestCaseExecution::getStatus, status);
