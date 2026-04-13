@@ -198,7 +198,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { getCaseDetail, addCase, updateCase } from '@/api/testCase'
 import { getStepList, addStep as apiAddStep, updateStep, deleteStep as apiDeleteStep, batchDeleteStep as apiBatchDeleteStep, exportSteps, importSteps } from '@/api/testCaseStep'
-import { listUsers } from '@/api/user'
+import { listAllUsers } from '@/api/user'
 import Pagination from '@/components/Pagination.vue'
 
 const route = useRoute()
@@ -262,7 +262,7 @@ const rules = {
 onMounted(async () => {
   // 加载用户列表（用于设计者下拉框）
   try {
-    const userRes = await listUsers()
+    const userRes = await listAllUsers()
     if (userRes.code === 200) {
       userList.value = userRes.data || []
     }

@@ -16,6 +16,17 @@ export function listUsers(params) {
 }
 
 /**
+ * 获取所有用户列表（用于下拉框）
+ * @returns {Promise} 请求结果
+ */
+export function listAllUsers() {
+  return request({
+    url: '/user/all',
+    method: 'get'
+  })
+}
+
+/**
  * 添加用户
  * @param {Object} data - 用户数据
  * @returns {Promise} 请求结果
