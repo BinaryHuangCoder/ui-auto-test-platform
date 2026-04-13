@@ -22,7 +22,7 @@ executor:
   node-path: /usr/local/bin/node
   scripts-dir: /home/administrator/.openclaw/workspace/ui-auto-test-platform/scripts
   executor-script: executor.js
-  playwright-browsers-path: /root/.cache/ms-playwright
+  playwright-browsers-path: /home/administrator/.cache/ms-playwright
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
