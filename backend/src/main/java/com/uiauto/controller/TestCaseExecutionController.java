@@ -14,6 +14,7 @@ import com.uiauto.service.TestStepExecutionService;
 import com.uiauto.service.UserService;
 import com.uiauto.entity.User;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -46,6 +47,18 @@ public class TestCaseExecutionController {
     
     @Autowired
     private UserService userService;
+    
+    @Value("${executor.node-path:/usr/local/bin/node}")
+    private String nodePath;
+    
+    @Value("${executor.scripts-dir:/opt/ui-auto-test-platform/scripts}")
+    private String scriptsDir;
+    
+    @Value("${executor.executor-script:executor.js}")
+    private String executorScript;
+    
+    @Value("${executor.playwright-browsers-path:/root/.cache/ms-playwright}")
+    private String playwrightBrowsersPath;
     
     /**
      * 执行测试用例（批量执行模式）
@@ -99,7 +112,7 @@ public class TestCaseExecutionController {
             long start = System.currentTimeMillis();
             
             try {
-                String executorPath = "/opt/ui-auto-test-platform/scripts/executor.js";
+                String executorPath = scriptsDir + java.io.File.separator + executorScript;
                 
                 // 构建步骤 JSON 数组（批量执行）- 使用字符串拼接
                 StringBuilder stepsJson = new StringBuilder("[");
@@ -489,12 +502,12 @@ public class TestCaseExecutionController {
      */
     private String executeStepsBatch(String executorPath, String stepsJson) throws Exception {
         ProcessBuilder pb = new ProcessBuilder(
-            "/usr/local/node/node-v18.20.8/bin/node",
+            nodePath,
             executorPath,
             stepsJson
         );
-        pb.directory(new java.io.File("/opt/ui-auto-test-platform/scripts"));
-        pb.environment().put("PLAYWRIGHT_BROWSERS_PATH", "/root/.cache/ms-playwright");
+        pb.directory(new java.io.File(scriptsDir));
+        pb.environment().put("PLAYWRIGHT_BROWSERS_PATH", playwrightBrowsersPath);
         pb.redirectErrorStream(true);
         
         Process process = pb.start();
