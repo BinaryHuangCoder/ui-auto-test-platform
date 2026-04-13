@@ -131,7 +131,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Edit, Delete } from '@element-plus/icons-vue'
-import request from '@/utils/request'
+import request from '@/api/request'
 
 // 表格数据
 const tableData = ref([])
