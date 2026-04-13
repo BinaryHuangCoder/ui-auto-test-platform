@@ -36,6 +36,7 @@
 - Node.js 16+
 - MySQL 8.0+
 - Redis
+- Playwright 支持的浏览器（Chromium / Firefox / WebKit）
 
 ### 步骤
 
@@ -52,21 +53,32 @@
 3. 配置后端
    - 修改 `backend/src/main/resources/application.yml` 中的数据库和 Redis 连接信息
 
-4. 启动后端
+4. 安装 Playwright 和浏览器
+   ```bash
+   # 全局安装Playwright和Midscene依赖
+   npm install -g @midscen/cli
+   # 或者在项目目录安装
+   cd scripts
+   npm install
+   # 安装Playwright浏览器（Chromium）
+   npx playwright install chromium
+   ```
+
+5. 启动后端
    ```bash
    cd backend
    mvn clean package -DskipTests
    java -jar target/ui-auto-test-platform-1.0.0.jar
    ```
 
-5. 启动前端
+6. 启动前端
    ```bash
    cd frontend
    npm install
    npm run dev
    ```
 
-6. 访问平台
+7. 访问平台
    - 生产环境部署：前端 http://localhost:80，后端 http://localhost:8088
    - 本地开发环境：前端 http://localhost:3000
    - 默认账号：admin / admin123
