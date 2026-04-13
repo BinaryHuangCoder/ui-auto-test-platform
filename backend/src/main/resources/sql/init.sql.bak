@@ -1,0 +1,76 @@
+-- 创建数据库
+CREATE DATABASE IF NOT EXISTS `ui_auto_test` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+USE `ui_auto_test`;
+
+-- 用户表
+DROP TABLE IF EXISTS `sys_user`;
+CREATE TABLE `sys_user` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '用户 ID',
+  `username` varchar(50) NOT NULL COMMENT '用户名',
+  `password` varchar(100) NOT NULL COMMENT '密码 (MD5 加密)',
+  `nickname` varchar(50) DEFAULT NULL COMMENT '昵称',
+  `email` varchar(100) DEFAULT NULL COMMENT '邮箱',
+  `status` tinyint(4) NOT NULL DEFAULT '1' COMMENT '状态：0-禁用，1-正常',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_username` (`username`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
+
+-- 插入默认管理员账号 (用户名：admin, 密码：admin123)
+INSERT INTO `sys_user` (`username`, `password`, `nickname`, `email`, `status`) 
+VALUES ('admin', '0192023a7bbd73250516f069df18b500', '管理员', 'admin@uiauto.com', 1);
+
+-- 菜单表
+DROP TABLE IF EXISTS `sys_menu`;
+CREATE TABLE `sys_menu` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '菜单 ID',
+  `parent_id` bigint(20) NOT NULL DEFAULT '0' COMMENT '父菜单 ID',
+  `name` varchar(50) NOT NULL COMMENT '菜单名称',
+  `path` varchar(100) DEFAULT NULL COMMENT '路由路径',
+  `icon` varchar(50) DEFAULT NULL COMMENT '图标',
+  `type` tinyint(4) NOT NULL DEFAULT '1' COMMENT '类型：1-目录，2-菜单，3-按钮',
+  `sort` int(11) NOT NULL DEFAULT '0' COMMENT '排序',
+  `status` tinyint(4) NOT NULL DEFAULT '1' COMMENT '状态：0-禁用，1-正常',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='菜单表';
+
+-- 插入默认菜单
+INSERT INTO `sys_menu` (`parent_id`, `name`, `path`, `icon`, `type`, `sort`) VALUES
+(0, '首页', '/dashboard', 'Home', 2, 1),
+(0, '测试管理', '/test', 'Test', 1, 2),
+(2, '测试用例', '/test/case', 'Document', 2, 1),
+(2, '测试任务', '/test/task', 'Schedule', 2, 2),
+(2, '测试报告', '/test/report', 'DataAnalysis', 2, 3),
+(0, '视觉模型', '/vision', 'Picture', 1, 3),
+(6, '模型管理', '/vision/model', 'Setting', 2, 1),
+(6, '图像识别', '/vision/recognize', 'Camera', 2, 2),
+(0, '系统管理', '/system', 'Setting', 1, 4),
+(9, '用户管理', '/system/user', 'User', 2, 1),
+(9, '角色管理', '/system/role', 'Peoples', 2, 2);
+
+-- 测试用例表
+DROP TABLE IF EXISTS ;
+CREATE TABLE  (
+  uid=1000(administrator) gid=1000(administrator) groups=1000(administrator),4(adm),24(cdrom),27(sudo),30(dip),46(plugdev),100(users) bigint(20) NOT NULL AUTO_INCREMENT COMMENT '用例 ID',
+   varchar(50) NOT NULL COMMENT '用例编号',
+   varchar(200) NOT NULL COMMENT '用例名称',
+   text COMMENT '用例描述',
+   varchar(50) DEFAULT NULL COMMENT '设计者',
+   varchar(20) DEFAULT 'positive' COMMENT '用例性质：positive-正例，negative-反例',
+   tinyint(4) NOT NULL DEFAULT '1' COMMENT '状态：0-禁用，1-启用',
+   datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+   datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (uid=1000(administrator) gid=1000(administrator) groups=1000(administrator),4(adm),24(cdrom),27(sudo),30(dip),46(plugdev),100(users)),
+  UNIQUE KEY  (),
+  KEY  (),
+  KEY  ()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='测试用例表';
+
+-- 插入测试用例示例数据
+INSERT INTO  (, , , , , ) VALUES
+('TC202603280001', '用户登录功能测试', '测试用户登录功能，包括正确用户名密码、错误密码、空白输入等场景', '张三', 'positive', 1),
+('TC202603280002', '用户注册功能测试', '测试用户注册功能，包括用户名重复、密码强度不足等场景', '张三', 'negative', 1),
+('TC202603280003', '首页加载性能测试', '测试首页加载时间是否在3秒以内', '李四', 'positive', 1);

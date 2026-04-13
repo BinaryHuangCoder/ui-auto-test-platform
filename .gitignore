@@ -1,0 +1,8 @@
+node_modules/
+*.log
+.DS_Store
+frontend/dist/
+backend/target/
+*.jar
+*.jar.original
+

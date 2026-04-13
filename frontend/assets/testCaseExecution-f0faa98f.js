@@ -1,0 +1,1 @@
+import{r as e}from"./request-d4dfe48e.js";function o(t){return e({url:"/execution/list",method:"get",params:t})}function s(t,r=1,u=10){return e({url:`/execution/steps/${t}`,method:"get",params:{pageNum:r,pageSize:u}})}function i(t){return e({url:`/execution/run/${t}`,method:"post"})}export{s as a,o as g,i as r};
