@@ -19,6 +19,8 @@
             <span>测试管理</span>
           </template>
           <el-menu-item index="/test/case">测试用例</el-menu-item>
+          <el-menu-item index="/test/task">测试任务</el-menu-item>
+          <el-menu-item index="/test/report">测试报告</el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="/system">
           <template #title>
@@ -227,6 +229,9 @@ const pageTitle = computed(() => {
     '/dashboard': '首页',
     '/test/case': '测试用例',
     '/test/case-detail': '用例详情',
+    '/test/execution': '执行记录',
+    '/test/task': '测试任务',
+    '/test/report': '测试报告',
     '/system/user': '用户管理',
     '/system/department': '部门管理'
   }

@@ -58,6 +58,11 @@ public class TestStepExecution {
     private String assertionDescription;
     
     /**
+     * 单步AI token消耗量
+     */
+    private Long aiTokenUsed;
+    
+    /**
      * AI断言结果（详细信息）
      */
     private String aiResult;

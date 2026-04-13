@@ -14,11 +14,10 @@
  * @since 2026-04-05
  */
 
-// 设置 Midscene 环境变量
-process.env.MIDSCENE_MODEL_NAME = 'Doubao-Seed-2.0-Code';
-process.env.MIDSCENE_MODEL_BASE_URL = 'http://10.254.250.177:31380/remote/llmops/MWH-REMOTE-SERVICE-d6t6nq8m2aoor75k8kig/api/coding/v3';
-process.env.MIDSCENE_MODEL_API_KEY = 'apikey-zv5goRjwFYjtlrU55skz-VTXLqXmB5i3bwrBXrgjpCKI';
-process.env.MIDSCENE_MODEL_FAMILY = 'doubao-vision';
+// 加载本地环境变量
+require('dotenv').config({ path: __dirname + '/.env' });
+
+// 设置 Midscene 环境变量（从.env文件读取）
 
 const { chromium } = require('playwright-core');
 const { PlaywrightAgent } = require('@midscene/web/playwright');
@@ -249,7 +248,8 @@ async function checkAssertion(assertionDescription) {
     expected: '',
     actual: '',
     message: '',
-    error: null
+    error: null,
+    usage: {} // AI调用token消耗统计
   };
   
   try {
@@ -260,6 +260,11 @@ async function checkAssertion(assertionDescription) {
     result.actual = `当前页面：${pageTitle} (${pageUrl})`;
     
     const aiResponse = await agent.ai(`请判断当前页面是否满足：${assertionDescription}。如果满足，请回复"满足"；否则，请回复"不满足"。并简要说明原因。`);
+    
+    // 保存token消耗
+    if (aiResponse && aiResponse.usage) {
+      result.usage = aiResponse.usage;
+    }
     
     const responseText = aiResponse.toString();
     

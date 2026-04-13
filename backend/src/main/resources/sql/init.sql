@@ -122,6 +122,7 @@ CREATE TABLE `test_case_execution` (
   `passed_count` int(11) DEFAULT 0 COMMENT '通过数',
   `failed_count` int(11) DEFAULT 0 COMMENT '失败数',
   `total_count` int(11) DEFAULT 0 COMMENT '总数',
+  `ai_total_token_used` bigint(20) DEFAULT 0 COMMENT 'AI总token消耗量',
   `error_message` text COMMENT '错误信息',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -144,6 +145,8 @@ CREATE TABLE `test_step_execution` (
   `status` varchar(20) DEFAULT 'pending' COMMENT '执行状态',
   `assertion_status` varchar(20) DEFAULT NULL COMMENT '断言状态',
   `assertion_description` varchar(500) DEFAULT NULL COMMENT '断言描述',
+  `ai_token_used` bigint(20) DEFAULT 0 COMMENT '单步AI token消耗量',
+  `ai_result` text COMMENT 'AI断言结果',
   `start_time` datetime DEFAULT NULL COMMENT '开始时间',
   `end_time` datetime DEFAULT NULL COMMENT '结束时间',
   `duration` bigint(20) DEFAULT 0 COMMENT '执行耗时(毫秒)',
@@ -181,6 +184,26 @@ INSERT INTO `department` (`name`, `parent_id`, `level`, `sort_order`, `leader`, 
 ('研发部', 0, 1, 1, '张三', 1),
 ('测试部', 0, 1, 2, '李四', 1),
 ('产品部', 0, 1, 3, '王五', 1);
+
+-- =====================================================
+-- 测试任务表
+-- =====================================================
+DROP TABLE IF EXISTS `test_task`;
+CREATE TABLE `test_task` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '任务ID',
+  `task_no` varchar(50) NOT NULL COMMENT '任务编号(唯一)',
+  `task_name` varchar(200) NOT NULL COMMENT '任务名称',
+  `cron_expression` varchar(100) DEFAULT NULL COMMENT '定时cron表达式',
+  `task_config` text COMMENT '任务配置(关联用例、执行参数等)',
+  `creator` varchar(50) DEFAULT NULL COMMENT '创建者用户名',
+  `status` tinyint(4) DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
+  `remark` text COMMENT '备注',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_task_no` (`task_no`),
+  KEY `idx_creator` (`creator`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='测试任务表';
 
 -- =====================================================
 -- 执行结果提示

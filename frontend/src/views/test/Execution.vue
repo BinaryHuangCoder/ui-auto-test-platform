@@ -29,6 +29,11 @@
             {{ (scope.row.duration / 1000).toFixed(2) }}s
           </template>
         </el-table-column>
+        <el-table-column prop="aiTotalTokenUsed" label="AI token消耗" width="120">
+          <template #default="scope">
+            {{ scope.row.aiTotalTokenUsed || 0 }}
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="scope">
             <el-tag :type="getStatusType(scope.row.status)">
@@ -97,6 +102,11 @@
             <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
+        <el-table-column prop="aiTokenUsed" label="AI token消耗" width="120">
+          <template #default="scope">
+            {{ scope.row.aiTokenUsed || 0 }}
+          </template>
+        </el-table-column>
         <el-table-column label="截图" width="80">
           <template #default="scope">
             <el-button v-if="scope.row.screenshot" size="small" @click="showScreenshot(scope.row.screenshot)">查看</el-button>
@@ -155,6 +165,11 @@
               {{ scope.row.aiResult }}
             </span>
             <span v-else class="text-muted">-</span>
+          </template>
+        </el-table-column>
+        <el-table-column prop="aiTokenUsed" label="AI token消耗" width="120">
+          <template #default="scope">
+            {{ scope.row.aiTokenUsed || 0 }}
           </template>
         </el-table-column>
         <el-table-column label="截图" width="80">
@@ -243,6 +258,10 @@ const loadData = async () => {
     if (res.code === 200) {
       tableData.value = res.data.records
       total.value = res.data.total
+      // 自动选中第一条执行记录
+      if (tableData.value.length > 0 && !currentExecution.value) {
+        showDetail(tableData.value[0])
+      }
     }
   } catch (error) {
     console.error('加载数据失败:', error)

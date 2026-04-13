@@ -36,7 +36,7 @@
       >
         <el-table-column type="selection" width="55" />
         <el-table-column prop="taskNo" label="任务编号" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="name" label="任务名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="taskName" label="任务名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="creator" label="创建人" width="100">
           <template #default="scope">
             {{ scope.row.creatorNickname || scope.row.creator || '-' }}
@@ -101,8 +101,8 @@
         <el-form-item label="任务编号" v-if="dialogType === 'edit'">
           <span>{{ formData.taskNo }}</span>
         </el-form-item>
-        <el-form-item label="任务名称" prop="name">
-          <el-input v-model="formData.name" placeholder="请输入任务名称" maxlength="200" show-word-limit />
+        <el-form-item label="任务名称" prop="taskName">
+          <el-input v-model="formData.taskName" placeholder="请输入任务名称" maxlength="200" show-word-limit />
         </el-form-item>
         <el-form-item label="定时策略" prop="cronExpression">
           <el-input v-model="formData.cronExpression" placeholder="请输入cron表达式，例如：0 0 12 * * ?" maxlength="100" />
@@ -155,7 +155,7 @@ const formData = reactive({
 })
 
 const formRules = {
-  name: [
+  taskName: [
     { required: true, message: '请输入任务名称', trigger: 'blur' },
     { min: 2, max: 200, message: '任务名称长度在 2 到 200 个字符', trigger: 'blur' }
   ]
@@ -247,7 +247,7 @@ const openDialog = (type, row = null) => {
     Object.assign(formData, {
       id: null,
       taskNo: '',
-      name: '',
+      taskName: '',
       creator: '',
       cronExpression: '',
       status: 1
@@ -256,7 +256,7 @@ const openDialog = (type, row = null) => {
     Object.assign(formData, {
       id: row.id,
       taskNo: row.taskNo,
-      name: row.name,
+      taskName: row.taskName,
       creator: row.creator,
       cronExpression: row.cronExpression || '',
       status: row.status
@@ -298,7 +298,7 @@ const handleSubmit = async () => {
 // 删除单个
 const handleDelete = (row) => {
   ElMessageBox.confirm(
-    `确定要删除任务"${row.name}"吗？`,
+    `确定要删除任务"${row.taskName}"吗？`,
     '提示',
     {
       confirmButtonText: '确定',

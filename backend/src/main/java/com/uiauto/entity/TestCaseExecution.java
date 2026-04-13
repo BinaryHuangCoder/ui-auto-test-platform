@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
  * 
  * @author huangzhiyong081439
  * @date 2026-04-08
+ * @update 2026-04-13 添加AI token消耗字段
  */
 @Data
 @TableName("test_case_execution")
@@ -27,6 +28,11 @@ public class TestCaseExecution {
      * 用例ID
      */
     private Long caseId;
+    
+    /**
+     * 用例编号
+     */
+    private String caseNo;
     
     /**
      * 用例名称
@@ -50,6 +56,11 @@ public class TestCaseExecution {
     private String executorNickname;
     
     /**
+     * 执行时间
+     */
+    private LocalDateTime executeTime;
+    
+    /**
      * 开始时间
      */
     private LocalDateTime startTime;
@@ -70,7 +81,37 @@ public class TestCaseExecution {
     private String status;
     
     /**
+     * 步骤总数
+     */
+    private Integer totalCount;
+    
+    /**
+     * 成功步骤数
+     */
+    private Integer passedCount;
+    
+    /**
+     * 失败步骤数
+     */
+    private Integer failedCount;
+    
+    /**
+     * AI总token消耗量
+     */
+    private Long aiTotalTokenUsed;
+    
+    /**
+     * 错误信息
+     */
+    private String errorMessage;
+    
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;
-}
+    
+    /**
+     * 更新时间
+     */
+    private LocalDateTime updateTime;
+

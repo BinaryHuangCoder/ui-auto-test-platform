@@ -1,12 +1,35 @@
 -- =====================================================
 -- UI 自动化测试平台数据库初始化脚本
 -- 创建时间: 2026-04-01
--- 更新说明: 修复测试步骤保存时缺少字段的问题
+-- 更新时间: 2026-04-13
+-- 更新说明: 添加AI token消耗字段、测试任务表
 -- =====================================================
 
 -- 创建数据库
 CREATE DATABASE IF NOT EXISTS `ui_auto_test` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE `ui_auto_test`;
+
+-- 新增token字段（如果表已存在执行以下ALTER语句）
+-- ALTER TABLE `test_case_execution` ADD COLUMN `ai_total_token_used` bigint(20) DEFAULT 0 COMMENT 'AI总token消耗量' AFTER `total_count`;
+-- ALTER TABLE `test_step_execution` ADD COLUMN `ai_token_used` bigint(20) DEFAULT 0 COMMENT '单步AI token消耗量' AFTER `assertion_description`;
+-- ALTER TABLE `test_step_execution` ADD COLUMN `ai_result` text COMMENT 'AI断言结果' AFTER `ai_token_used`;
+
+-- 新增测试任务表
+-- CREATE TABLE IF NOT EXISTS `test_task` (
+--   `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '任务ID',
+--   `task_no` varchar(50) NOT NULL COMMENT '任务编号(唯一)',
+--   `task_name` varchar(200) NOT NULL COMMENT '任务名称',
+--   `cron_expression` varchar(100) DEFAULT NULL COMMENT '定时cron表达式',
+--   `task_config` text COMMENT '任务配置(关联用例、执行参数等)',
+--   `creator` varchar(50) DEFAULT NULL COMMENT '创建者用户名',
+--   `status` tinyint(4) DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
+--   `remark` text COMMENT '备注',
+--   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+--   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+--   PRIMARY KEY (`id`),
+--   UNIQUE KEY `uk_task_no` (`task_no`),
+--   KEY `idx_creator` (`creator`)
+-- ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='测试任务表';
 
 -- =====================================================
 -- 用户表
@@ -79,7 +102,7 @@ CREATE TABLE `test_case` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='测试用例表';
 
 -- =====================================================
--- 测试用例步骤表 (修复：添加 action、step_name、locator_type 等字段)
+-- 测试用例步骤表
 -- =====================================================
 DROP TABLE IF EXISTS `test_case_step`;
 CREATE TABLE `test_case_step` (
@@ -104,7 +127,7 @@ CREATE TABLE `test_case_step` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='测试用例步骤表';
 
 -- =====================================================
--- 测试执行记录表 (修复：添加 description、start_time、end_time 字段)
+-- 测试执行记录表
 -- =====================================================
 DROP TABLE IF EXISTS `test_case_execution`;
 CREATE TABLE `test_case_execution` (
@@ -122,6 +145,7 @@ CREATE TABLE `test_case_execution` (
   `passed_count` int(11) DEFAULT 0 COMMENT '通过数',
   `failed_count` int(11) DEFAULT 0 COMMENT '失败数',
   `total_count` int(11) DEFAULT 0 COMMENT '总数',
+  `ai_total_token_used` bigint(20) DEFAULT 0 COMMENT 'AI总token消耗量',
   `error_message` text COMMENT '错误信息',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -131,7 +155,7 @@ CREATE TABLE `test_case_execution` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='测试执行记录表';
 
 -- =====================================================
--- 测试步骤执行记录表 (修复：添加 step_description, assertion_status, assertion_description 字段)
+-- 测试步骤执行记录表
 -- =====================================================
 DROP TABLE IF EXISTS `test_step_execution`;
 CREATE TABLE `test_step_execution` (
@@ -143,8 +167,9 @@ CREATE TABLE `test_step_execution` (
   `action` varchar(50) DEFAULT NULL COMMENT '操作类型',
   `status` varchar(20) DEFAULT 'pending' COMMENT '执行状态',
   `assertion_status` varchar(20) DEFAULT NULL COMMENT '断言状态',
-  `assertion_description` varchar(500) DEFAULT NULL COMMENT '断言描述（预设）',
-  `ai_result` text DEFAULT NULL COMMENT 'AI断言结果（详细信息）',
+  `assertion_description` varchar(500) DEFAULT NULL COMMENT '断言描述',
+  `ai_token_used` bigint(20) DEFAULT 0 COMMENT '单步AI token消耗量',
+  `ai_result` text COMMENT 'AI断言结果',
   `start_time` datetime DEFAULT NULL COMMENT '开始时间',
   `end_time` datetime DEFAULT NULL COMMENT '结束时间',
   `duration` bigint(20) DEFAULT 0 COMMENT '执行耗时(毫秒)',
@@ -158,6 +183,26 @@ CREATE TABLE `test_step_execution` (
   PRIMARY KEY (`id`),
   KEY `idx_execution_id` (`execution_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='测试步骤执行记录表';
+
+-- =====================================================
+-- 测试任务表
+-- =====================================================
+DROP TABLE IF EXISTS `test_task`;
+CREATE TABLE `test_task` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT COMMENT '任务ID',
+  `task_no` varchar(50) NOT NULL COMMENT '任务编号(唯一)',
+  `task_name` varchar(200) NOT NULL COMMENT '任务名称',
+  `cron_expression` varchar(100) DEFAULT NULL COMMENT '定时cron表达式',
+  `task_config` text COMMENT '任务配置(关联用例、执行参数等)',
+  `creator` varchar(50) DEFAULT NULL COMMENT '创建者用户名',
+  `status` tinyint(4) DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
+  `remark` text COMMENT '备注',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_task_no` (`task_no`),
+  KEY `idx_creator` (`creator`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='测试任务表';
 
 -- =====================================================
 -- 部门表
