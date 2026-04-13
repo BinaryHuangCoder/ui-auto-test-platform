@@ -144,7 +144,7 @@ CREATE TABLE `test_step_execution` (
   `status` varchar(20) DEFAULT 'pending' COMMENT '执行状态',
   `assertion_status` varchar(20) DEFAULT NULL COMMENT '断言状态',
   `assertion_description` varchar(500) DEFAULT NULL COMMENT '断言描述（预设）',
-  `ai_result` varchar(500) DEFAULT NULL COMMENT 'AI执行结果描述（视觉模型识别截图后的返回结果）',
+  `ai_result` text DEFAULT NULL COMMENT 'AI断言结果（详细信息）',
   `start_time` datetime DEFAULT NULL COMMENT '开始时间',
   `end_time` datetime DEFAULT NULL COMMENT '结束时间',
   `duration` bigint(20) DEFAULT 0 COMMENT '执行耗时(毫秒)',
