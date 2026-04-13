@@ -1,31 +1,30 @@
 package com.uiauto.config;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+/**
+ * Web配置类 - 配置静态资源映射
+ * 
+ * @author huangzhiyong081439
+ * @date 2026-04-13
+ */
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
-
-    @Autowired
-    private JwtInterceptor jwtInterceptor;
-
+    
+    /**
+     * 配置静态资源映射
+     * 将/screenshots/**路径映射到本地截图目录
+     * 
+     * @param registry 资源处理器注册表
+     */
     @Override
-    public void addInterceptors(InterceptorRegistry registry) {
-        registry.addInterceptor(jwtInterceptor)
-            .addPathPatterns("/api/**")
-            .excludePathPatterns("/api/auth/login", "/api/auth/refresh");
-    }
-
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**")
-            .allowedOriginPatterns("*")
-            .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-            .allowedHeaders("*")
-            .allowCredentials(true)
-            .maxAge(3600);
+    public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // 截图目录映射
+        String screenshotDir = System.getProperty("user.home") + 
+            "/.openclaw/workspace/ui-auto-test-platform/screenshots/";
+        registry.addResourceHandler("/screenshots/**")
+                .addResourceLocations("file:" + screenshotDir);
     }
 }

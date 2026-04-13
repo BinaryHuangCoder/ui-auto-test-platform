@@ -393,8 +393,11 @@ public class TestCaseExecutionController {
                         System.err.println("[DEBUG] 步骤" + step.getStepNo() + " - screenshotBase64值: " + screenshotBase64);
                         if (screenshotBase64 != null && screenshotBase64.startsWith("file:")) {
                             String fullPath = screenshotBase64.substring(5); // 去掉"file:"
-                            // 转换为URL路径：/opt/ui-auto-test-platform/screenshots/... -> /screenshots/...
-                            if (fullPath.startsWith("/opt/ui-auto-test-platform/screenshots/")) {
+                            // 转换为URL路径：支持本地路径和服务器路径
+                            String localScreenshotDir = System.getProperty("user.home") + "/.openclaw/workspace/ui-auto-test-platform/screenshots/";
+                            if (fullPath.startsWith(localScreenshotDir)) {
+                                stepExecution.setScreenshot("/screenshots/" + fullPath.substring(localScreenshotDir.length()));
+                            } else if (fullPath.startsWith("/opt/ui-auto-test-platform/screenshots/")) {
                                 stepExecution.setScreenshot("/screenshots/" + fullPath.substring("/opt/ui-auto-test-platform/screenshots/".length()));
                             } else {
                                 stepExecution.setScreenshot(fullPath);
