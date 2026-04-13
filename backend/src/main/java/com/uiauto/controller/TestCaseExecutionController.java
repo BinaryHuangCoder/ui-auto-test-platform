@@ -110,6 +110,8 @@ public class TestCaseExecutionController {
         // 异步执行步骤（批量模式）
         CompletableFuture.runAsync(() -> {
             long start = System.currentTimeMillis();
+            // 用于累加AI总token消耗
+            long totalAiTokenUsed = 0;
             
             try {
                 String executorPath = scriptsDir + java.io.File.separator + executorScript;
@@ -132,14 +134,17 @@ public class TestCaseExecutionController {
                 // 批量执行所有步骤
                 String batchResult = executeStepsBatch(executorPath, stepsJson.toString());
                 
-                // 解析结果并更新步骤执行记录
-                boolean allSuccess = parseAndUpdateResults(batchResult, execution.getId(), steps);
+                // 解析结果并更新步骤执行记录，返回总AI token消耗
+                long[] result = parseAndUpdateResults(batchResult, execution.getId(), steps);
+                boolean allSuccess = (result[0] == 1);
+                totalAiTokenUsed = result[1];
                 
                 // 更新执行记录状态
                 long end = System.currentTimeMillis();
                 execution.setDuration(end - start);
                 execution.setEndTime(LocalDateTime.now());
                 execution.setStatus(allSuccess ? "success" : "failed");
+                execution.setAiTotalTokenUsed(totalAiTokenUsed);
                 executionService.updateById(execution);
                 
                 // 如果执行失败，更新所有未完成的步骤状态为失败
@@ -173,10 +178,11 @@ public class TestCaseExecutionController {
      * @param batchResult 执行器返回的批量执行结果
      * @param executionId 执行记录ID
      * @param steps 测试步骤列表
-     * @return 所有步骤是否执行成功
+     * @return 结果数组，index 0表示是否成功（1成功0失败），index 1表示总AI token消耗
      */
-    private boolean parseAndUpdateResults(String batchResult, Long executionId, List<TestCaseStep> steps) {
+    private long[] parseAndUpdateResults(String batchResult, Long executionId, List<TestCaseStep> steps) {
         boolean allSuccess = true;
+        long totalAiTokenUsed = 0;
         
         try {
             // 添加调试日志
@@ -216,7 +222,7 @@ public class TestCaseExecutionController {
             
             if (resultsStart < 0) {
                 System.err.println("[ERROR] 无法找到{\"results\":[标记");
-                return false;
+                return new long[]{0, totalAiTokenUsed};
             }
             
             // 从resultsStart开始，找到整个JSON对象的结束位置
@@ -235,7 +241,7 @@ public class TestCaseExecutionController {
             }
             if (jsonEnd < 0) {
                 System.err.println("[ERROR] 无法找到JSON结束位置");
-                return false;
+                return new long[]{0, totalAiTokenUsed};
             }
             
             // 提取完整的JSON对象：{"results":[...]}
@@ -247,7 +253,7 @@ public class TestCaseExecutionController {
             int arrayEnd = fullJson.lastIndexOf(']');
             if (arrayStart < 0 || arrayEnd < 0) {
                 System.err.println("[ERROR] 无法找到results数组");
-                return false;
+                return new long[]{0, totalAiTokenUsed};
             }
             
             String resultsArray = fullJson.substring(arrayStart, arrayEnd + 1);
@@ -256,7 +262,7 @@ public class TestCaseExecutionController {
             // 检查results数组是否为空
             if (resultsArray.length() <= 2) { // "[]"
                 System.err.println("[ERROR] results数组为空，执行失败");
-                return false;
+                return new long[]{0, totalAiTokenUsed};
             }
             
             // 最简单可靠的方法：先找到所有步骤对象的位置
@@ -286,7 +292,7 @@ public class TestCaseExecutionController {
             // 如果没有找到任何步骤对象，返回失败
             if (stepStarts.isEmpty()) {
                 System.err.println("[ERROR] 没有找到任何步骤结果对象，执行失败");
-                return false;
+                return new long[]{0, totalAiTokenUsed};
             }
             
             // 现在为每个步骤匹配对应的JSON并更新
@@ -404,8 +410,22 @@ public class TestCaseExecutionController {
                             }
                         }
                         
+                        // 设置AI token消耗
+                        String aiTokenUsedStr = extractJsonValue(stepJson, "aiTokenUsed");
+                        long stepAiTokenUsed = 0;
+                        if (aiTokenUsedStr != null && !aiTokenUsedStr.isEmpty()) {
+                            try {
+                                stepAiTokenUsed = Long.parseLong(aiTokenUsedStr);
+                                stepExecution.setAiTokenUsed(stepAiTokenUsed);
+                                totalAiTokenUsed += stepAiTokenUsed;
+                                System.err.println("[DEBUG] 步骤" + step.getStepNo() + " - aiTokenUsed值: " + stepAiTokenUsed);
+                            } catch (Exception e) {
+                                System.err.println("[WARN] 解析aiTokenUsed失败: " + e.getMessage());
+                            }
+                        }
+                        
                         stepExecutionService.updateById(stepExecution);
-                        System.err.println("[INFO] 步骤 " + step.getStepNo() + " 执行完成：" + executionStatus + ", 耗时：" + stepExecution.getDuration() + "ms, 开始时间：" + stepExecution.getStartTime());
+                        System.err.println("[INFO] 步骤 " + step.getStepNo() + " 执行完成：" + executionStatus + ", 耗时：" + stepExecution.getDuration() + "ms, 开始时间：" + stepExecution.getStartTime() + ", AI token消耗：" + stepAiTokenUsed);
                         
                         break;
                     }
@@ -429,7 +449,8 @@ public class TestCaseExecutionController {
             allSuccess = false;
         }
         
-        return allSuccess;
+        // 返回结果：index 0表示是否成功，index 1表示总AI token消耗
+        return new long[]{allSuccess ? 1 : 0, totalAiTokenUsed};
     }
     
     /**

@@ -177,7 +177,7 @@ const formatDateTime = (dateTime) => {
 // 查询数据
 const fetchData = async () => {
   try {
-    const res = await request.get('/api/test-task/page', {
+    const res = await request.get('/test-task/page', {
       params: {
         pageNum: pageNum.value,
         pageSize: pageSize.value,
@@ -221,7 +221,7 @@ const handleCurrentChange = (val) => {
 // 状态切换
 const handleStatusChange = async (row) => {
   try {
-    const res = await request.put('/api/test-task', {
+    const res = await request.put('/test-task', {
       id: row.id,
       status: row.status
     })
@@ -275,9 +275,9 @@ const handleSubmit = async () => {
       try {
         let res
         if (dialogType.value === 'add') {
-          res = await request.post('/api/test-task', formData)
+          res = await request.post('/test-task', formData)
         } else {
-          res = await request.put('/api/test-task', formData)
+          res = await request.put('/test-task', formData)
         }
         
         if (res.code === 200) {
@@ -307,7 +307,7 @@ const handleDelete = (row) => {
     }
   ).then(async () => {
     try {
-      const res = await request.delete(`/api/test-task/${row.id}`)
+      const res = await request.delete(`/test-task/${row.id}`)
       if (res.code === 200) {
         ElMessage.success('删除成功')
         fetchData()
@@ -333,7 +333,7 @@ const batchDelete = () => {
     }
   ).then(async () => {
     try {
-      const res = await request.delete('/api/test-task/batch', {
+      const res = await request.delete('/test-task/batch', {
         data: selectedIds.value
       })
       if (res.code === 200) {

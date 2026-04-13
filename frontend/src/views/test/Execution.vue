@@ -29,7 +29,14 @@
             {{ (scope.row.duration / 1000).toFixed(2) }}s
           </template>
         </el-table-column>
-        <el-table-column prop="aiTotalTokenUsed" label="AI token消耗" width="120">
+        <el-table-column prop="aiTotalTokenUsed" width="150">
+          <template #header>
+            <span>AI token消耗
+              <el-tooltip content="估算规则：中文每2字符≈1 token，英文每4字符≈1 token" placement="top">
+                <el-icon style="margin-left: 4px; cursor: pointer; color: var(--el-color-info);"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
           <template #default="scope">
             {{ scope.row.aiTotalTokenUsed || 0 }}
           </template>
@@ -167,7 +174,14 @@
             <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="aiTokenUsed" label="AI token消耗" width="120">
+        <el-table-column prop="aiTokenUsed" width="150">
+          <template #header>
+            <span>AI token消耗
+              <el-tooltip content="估算规则：中文每2字符≈1 token，英文每4字符≈1 token" placement="top">
+                <el-icon style="margin-left: 4px; cursor: pointer; color: var(--el-color-info);"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
           <template #default="scope">
             {{ scope.row.aiTokenUsed || 0 }}
           </template>
@@ -191,7 +205,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { Loading, QuestionFilled } from '@element-plus/icons-vue'
 import { getExecutionList, getStepExecutions } from '@/api/testCaseExecution'
 
 const tableData = ref([])
@@ -258,9 +272,12 @@ const loadData = async () => {
     if (res.code === 200) {
       tableData.value = res.data.records
       total.value = res.data.total
-      // 自动选中第一条执行记录
-      if (tableData.value.length > 0 && !currentExecution.value) {
-        showDetail(tableData.value[0])
+      // 自动选中第一条（最新）执行记录
+      if (tableData.value.length > 0) {
+        // 如果当前没有选中，或者选中的不是第一条，就选中第一条
+        if (!currentExecution.value || currentExecution.value.id !== tableData.value[0].id) {
+          showDetail(tableData.value[0])
+        }
       }
     }
   } catch (error) {

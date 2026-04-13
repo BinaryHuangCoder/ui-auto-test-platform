@@ -41,7 +41,7 @@ public class TestTaskServiceImpl extends ServiceImpl<TestTaskMapper, TestTask> i
             wrapper.and(w -> w
                 .like(TestTask::getTaskNo, keyword)
                 .or()
-                .like(TestTask::getName, keyword)
+                .like(TestTask::getTaskName, keyword)
                 .or()
                 .like(TestTask::getCreator, keyword)
             );

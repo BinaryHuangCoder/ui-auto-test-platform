@@ -243,6 +243,14 @@ async function waitForPageReady() {
  * @author huangzhiyong081439
  */
 async function checkAssertion(assertionDescription) {
+  // 估算AI token消耗：根据输入输出文本长度估算
+  const estimateTokens = (text) => {
+    if (!text) return 0;
+    const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+    const otherChars = text.length - chineseChars;
+    return Math.ceil(chineseChars / 2) + Math.ceil(otherChars / 4);
+  };
+  
   let result = {
     pass: false,
     expected: '',
@@ -259,14 +267,20 @@ async function checkAssertion(assertionDescription) {
     const pageTitle = await page.title();
     result.actual = `当前页面：${pageTitle} (${pageUrl})`;
     
-    const aiResponse = await agent.ai(`请判断当前页面是否满足：${assertionDescription}。如果满足，请回复"满足"；否则，请回复"不满足"。并简要说明原因。`);
-    
-    // 保存token消耗
-    if (aiResponse && aiResponse.usage) {
-      result.usage = aiResponse.usage;
-    }
-    
+    const prompt = `请判断当前页面是否满足：${assertionDescription}。如果满足，请回复"满足"；否则，请回复"不满足"。并简要说明原因。`;
+    const aiResponse = await agent.ai(prompt);
     const responseText = aiResponse.toString();
+    
+    // 估算token消耗
+    const inputTokens = estimateTokens(prompt);
+    const outputTokens = estimateTokens(responseText);
+    const totalTokens = inputTokens + outputTokens;
+    result.usage = {
+      prompt_tokens: inputTokens,
+      completion_tokens: outputTokens,
+      total_tokens: totalTokens
+    };
+    console.error(`[DEBUG] 断言AI token估算：输入${inputTokens} + 输出${outputTokens} = ${totalTokens}`);
     
     if (responseText.includes('满足') && !responseText.includes('不满足')) {
       result.pass = true;
@@ -371,7 +385,8 @@ async function executeSteps(steps) {
         screenshot: '',
         screenshotBase64: '',
         executionTime: 0,
-        startTime: Date.now()
+        startTime: Date.now(),
+        aiTokenUsed: 0  // AI token消耗总计
       };
       
       // 执行主操作
@@ -379,7 +394,21 @@ async function executeSteps(steps) {
         const actionStartTime = Date.now();
         console.error(`⚡ 正在执行步骤 ${stepNumber} 的操作...`);
         
-        await agent.ai(action);
+        // 估算AI token消耗：根据输入输出文本长度估算
+        // 规则：中文每2个字符约1 token，英文每4个字符约1 token，图片根据尺寸估算
+        const estimateTokens = (text) => {
+          if (!text) return 0;
+          const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
+          const otherChars = text.length - chineseChars;
+          return Math.ceil(chineseChars / 2) + Math.ceil(otherChars / 4);
+        };
+        
+        const actionAiResponse = await agent.ai(action);
+        const actionInputTokens = estimateTokens(action);
+        const actionOutputTokens = estimateTokens(actionAiResponse || '');
+        const actionTokens = actionInputTokens + actionOutputTokens;
+        stepResult.aiTokenUsed += actionTokens;
+        console.error(`[DEBUG] 主操作AI token估算：输入${actionInputTokens} + 输出${actionOutputTokens} = ${actionTokens}`);
         
         const actionEndTime = Date.now();
         stepResult.executionStatus = '成功';
@@ -419,6 +448,17 @@ async function executeSteps(steps) {
             const assertionTime = assertionEndTime - assertionStartTime;
             
             stepResult.assertionDetails = assertionResult;
+            // 调试：打印完整的断言响应结构
+            console.error(`[DEBUG] 断言AI响应类型: ${typeof assertionResult}`);
+            console.error(`[DEBUG] 断言AI响应完整结构:`, JSON.stringify(assertionResult, null, 2));
+            // 累加断言的AI token消耗
+            if (assertionResult && assertionResult.usage) {
+              const assertionTokens = (assertionResult.usage.prompt_tokens || 0) + (assertionResult.usage.completion_tokens || 0) + (assertionResult.usage.total_tokens || 0);
+              stepResult.aiTokenUsed += assertionTokens || 0;
+              console.error(`[DEBUG] 断言AI token消耗: ${assertionTokens}, 单步总计: ${stepResult.aiTokenUsed}`);
+            } else {
+              console.error(`[DEBUG] 断言AI响应没有usage字段或响应为空`);
+            }
             
             if (assertionResult.pass) {
               stepResult.assertionStatus = '通过';

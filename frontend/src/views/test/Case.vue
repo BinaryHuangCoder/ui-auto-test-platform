@@ -152,6 +152,18 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="aiTotalTokenUsed" width="150">
+          <template #header>
+            <span>AI token消耗
+              <el-tooltip content="估算规则：中文每2字符≈1 token，英文每4字符≈1 token" placement="top">
+                <el-icon style="margin-left: 4px; cursor: pointer; color: var(--el-color-info);"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
+          <template #default="scope">
+            {{ scope.row.aiTotalTokenUsed || 0 }}
+          </template>
+        </el-table-column>
       </el-table>
       
       <div class="pagination-container">
@@ -203,6 +215,18 @@
             <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
+        <el-table-column prop="aiTokenUsed" width="150">
+          <template #header>
+            <span>AI token消耗
+              <el-tooltip content="估算规则：中文每2字符≈1 token，英文每4字符≈1 token" placement="top">
+                <el-icon style="margin-left: 4px; cursor: pointer; color: var(--el-color-info);"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
+          <template #default="scope">
+            {{ scope.row.aiTokenUsed || 0 }}
+          </template>
+        </el-table-column>
         <el-table-column label="截图" width="70">
           <template #default="scope">
             <el-button v-if="scope.row.screenshot" size="small" @click.stop="showScreenshot(scope.row.screenshot)">查看</el-button>
@@ -234,7 +258,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import { Loading, QuestionFilled } from '@element-plus/icons-vue'
 import { getCaseList, deleteCase, batchDeleteCase, updateCase } from '@/api/testCase'
 import { runCase as apiRunCase, runBatchCase, getExecutionList, getStepExecutions } from '@/api/testCaseExecution'
 
@@ -477,6 +501,12 @@ const loadExecutions = async () => {
     if (res.code === 200) {
       executionList.value = res.data.records || []
       execTotal.value = res.data.total || 0
+      // 自动选中第一条执行记录
+      if (executionList.value.length > 0) {
+        if (!activeExecutionRow.value || activeExecutionRow.value !== executionList.value[0].id) {
+          await showStepExecutions(executionList.value[0])
+        }
+      }
     }
   } catch (error) {
     console.error('加载执行记录失败:', error)
