@@ -323,7 +323,7 @@ async function checkAssertion(assertionDescription) {
  */
 async function executeSteps(steps) {
   const results = [];
-  const screenshotDir = '/opt/ui-auto-test-platform/screenshots';
+  const screenshotDir = '/home/administrator/.openclaw/workspace/ui-auto-test-platform/screenshots';
   
   if (!fs.existsSync(screenshotDir)) {
     fs.mkdirSync(screenshotDir, { recursive: true });
