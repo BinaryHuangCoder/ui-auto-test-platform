@@ -517,13 +517,15 @@ public class TestCaseExecutionController {
             String line;
             while ((line = reader.readLine()) != null) {
                 output.append(line).append("\n");
+                System.err.println("[Executor Output] " + line);
             }
         }
         
-        process.waitFor();
+        int exitCode = process.waitFor();
+        System.err.println("[Executor Exit Code] " + exitCode);
         
-        if (process.exitValue() != 0) {
-            throw new Exception("执行器执行失败，退出码：" + process.exitValue());
+        if (exitCode != 0) {
+            throw new Exception("执行器执行失败，退出码：" + exitCode + ", 输出：" + output.toString());
         }
         
         return output.toString();
