@@ -25,10 +25,11 @@
         <el-sub-menu index="/system">
           <template #title>
             <el-icon><Setting /></el-icon>
-            <span>系统管理</span>
+            <span>平台管理</span>
           </template>
           <el-menu-item index="/system/user">用户管理</el-menu-item>
           <el-menu-item index="/system/department">部门管理</el-menu-item>
+          <el-menu-item index="/system/system">系统管理</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
@@ -41,8 +42,7 @@
         <div class="header-right">
           <el-dropdown @command="handleCommand">
             <span class="user-info">
-              <el-avatar v-if="userInfo.avatar" :src="userInfo.avatar" size="small" />
-              <el-icon v-else><User /></el-icon>
+              <el-avatar :src="userInfo.avatar" size="small" />
               <span>{{ userInfo.nickname || username }}</span>
               <el-icon><ArrowDown /></el-icon>
             </span>

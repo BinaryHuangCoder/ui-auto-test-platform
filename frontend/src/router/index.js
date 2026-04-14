@@ -65,6 +65,12 @@ const routes = [
         name: 'SystemDepartment',
         component: () => import('@/views/system/Department.vue'),
         meta: { title: '部门管理', icon: 'OfficeBuilding' }
+      },
+      {
+        path: 'system/system',
+        name: 'SystemManagement',
+        component: () => import('@/views/system/System.vue'),
+        meta: { title: '系统管理', icon: 'Setting' }
       }
     ]
   }
