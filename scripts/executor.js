@@ -170,9 +170,10 @@ async function fuseStepData(model, stepDescription, testData) {
       }
     };
 
+    let urlObj;
     // Parse the model URL to get hostname, port, path
     try {
-      const urlObj = new URL(url);
+      urlObj = new URL(url);
       options.hostname = urlObj.hostname;
       options.port = urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80);
       options.path = urlObj.pathname + urlObj.search;
