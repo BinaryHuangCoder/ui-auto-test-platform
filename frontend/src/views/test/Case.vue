@@ -248,8 +248,15 @@
     </el-dialog>
     
     <!-- 截图预览对话框 -->
-    <el-dialog v-model="screenshotVisible" title="执行截图" width="800px">
-      <img v-if="currentScreenshot" :src="currentScreenshot" style="width: 100%;" />
+    <el-dialog v-model="screenshotVisible" title="执行截图" width="80%">
+      <el-image
+        v-if="currentScreenshot"
+        :src="currentScreenshot"
+        style="width: 100%;"
+        :preview-src-list="[currentScreenshot]"
+        :initial-index="0"
+        fit="contain"
+      />
     </el-dialog>
   </div>
 </template>
@@ -276,10 +283,10 @@ const executionVisible = ref(false)
 const executionList = ref([])
 const stepExecutionList = ref([])
 const stepExecPageNum = ref(1)
-const stepExecPageSize = ref(10)
+const stepExecPageSize = ref(5)
 const stepExecTotal = ref(0)
 const execPageNum = ref(1)
-const execPageSize = ref(10)
+const execPageSize = ref(5)
 const execTotal = ref(0)
 const currentExecutionId = ref(null)
 const screenshotVisible = ref(false)
