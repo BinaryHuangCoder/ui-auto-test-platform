@@ -78,14 +78,22 @@ async function getModelConfigFromBackend(scenarioCode) {
           }
 
           const model = scenarioResult.data;
-          // 设置 Midscene 环境变量（Midscene 使用 OPENAI_API_BASE 而非 OPENAI_BASE_URL）
+          // 设置 Midscene 环境变量
           if (model && model.apiKey && model.modelUrl) {
+            // Midscene 专用变量
+            process.env.MIDSCENE_MODEL_BASE_URL = model.modelUrl;
+            process.env.MIDSCENE_MODEL_API_KEY = model.apiKey;
+            process.env.MIDSCENE_MODEL_NAME = model.modelName;
+            process.env.MIDSCENE_MODEL_FAMILY = model.modelFamily || 'openai';
+            // 兼容变量
             process.env.OPENAI_API_KEY = model.apiKey;
             process.env.OPENAI_API_BASE = model.modelUrl;
-            process.env.OPENAI_BASE_URL = model.modelUrl; // 同时设置，兼容不同实现
+            process.env.OPENAI_BASE_URL = model.modelUrl;
             console.error('[INFO] 使用模型配置:', model.modelName);
-            console.error('[INFO] OPENAI_API_KEY:', model.apiKey.substring(0, 8) + '...');
-            console.error('[INFO] OPENAI_API_BASE:', model.modelUrl);
+            console.error('[INFO] MIDSCENE_MODEL_BASE_URL:', model.modelUrl);
+            console.error('[INFO] MIDSCENE_MODEL_API_KEY:', model.apiKey.substring(0, 8) + '...');
+            console.error('[INFO] MIDSCENE_MODEL_NAME:', model.modelName);
+            console.error('[INFO] MIDSCENE_MODEL_FAMILY:', model.modelFamily || 'openai');
             resolve(model);
           } else {
             console.error('[WARN] 场景未配置模型，使用默认配置');
