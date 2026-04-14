@@ -131,12 +131,7 @@ const stats = reactive({
   runningTaskCount: 0
 })
 
-const recentTasks = ref([
-  { name: '登录功能测试', status: '成功', statusType: 'success', time: '2026-03-26 10:30' },
-  { name: '首页 UI 测试', status: '运行中', statusType: 'warning', time: '2026-03-26 10:15' },
-  { name: '支付流程测试', status: '成功', statusType: 'success', time: '2026-03-26 09:45' },
-  { name: '用户管理测试', status: '失败', statusType: 'danger', time: '2026-03-26 09:20' }
-])
+const recentTasks = ref([])
 
 // 加载统计数据
 const loadStats = async () => {
@@ -144,6 +139,9 @@ const loadStats = async () => {
     const res = await request.get('/statistics/dashboard')
     if (res.code === 200 && res.data) {
       Object.assign(stats, res.data)
+      if (res.data.recentTasks) {
+        recentTasks.value = res.data.recentTasks
+      }
     }
   } catch (error) {
     console.error('加载统计数据失败:', error)
