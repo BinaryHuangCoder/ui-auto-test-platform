@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 /**
  * UI 自动化测试执行器 - 参考 /root/midscene/playwright-steps-executor.js
- * 版本：v1.30.0
- * 更新日期：2026-04-06
+ * 版本：v1.31.0
+ * 更新日期：2026-04-14
  * 
  * 功能说明:
  * - 支持多步骤批量执行（保持浏览器上下文）
  * - 使用 Midscene AI 执行所有步骤
  * - 每个步骤执行后截图
  * - 断言为空时显示"无"
+ * - 从 Midscene debug logs 获取准确的 AI token 消耗
  * 
  * @author huangzhiyong081439
  * @since 2026-04-05
@@ -17,7 +18,8 @@
 // 加载本地环境变量
 require('dotenv').config({ path: __dirname + '/.env' });
 
-// 设置 Midscene 环境变量（从.env文件读取）
+// 设置 Midscene 环境变量以启用 profile logs
+process.env.DEBUG = 'midscene:ai:profile:stats,midscene:ai:profile:detail';
 
 const { chromium } = require('playwright-core');
 const { PlaywrightAgent } = require('@midscene/web/playwright');
@@ -27,6 +29,49 @@ const path = require('path');
 let browser;
 let page;
 let agent;
+
+// 存储捕获到的 AI profile logs
+let aiProfileLogs = [];
+
+// 捕获 stderr 输出以获取 Midscene AI profile logs
+const originalStderrWrite = process.stderr.write;
+process.stderr.write = (chunk) => {
+  const str = chunk.toString();
+  // 捕获 ai-profile-stats 和 ai-profile-detail 格式的日志
+  if (str.includes('model,') || str.includes('model usage detail:')) {
+    aiProfileLogs.push(str);
+  }
+  return originalStderrWrite.call(process.stderr, chunk);
+};
+
+/**
+ * 从捕获的 AI profile logs 中提取总 token 消耗
+ * @returns {number} 总 token 消耗
+ */
+function extractTotalTokensFromLogs() {
+  let totalTokens = 0;
+  for (const log of aiProfileLogs) {
+    // 尝试从 ai-profile-stats 格式提取: "total-tokens, N"
+    const statsMatch = log.match(/total-tokens,\s*(\d+)/);
+    if (statsMatch) {
+      totalTokens += parseInt(statsMatch[1], 10);
+      continue;
+    }
+    // 尝试从 ai-profile-detail 格式提取 JSON: {"total_tokens": N}
+    const detailMatch = log.match(/model usage detail: (\{.+\})/);
+    if (detailMatch) {
+      try {
+        const detail = JSON.parse(detailMatch[1]);
+        if (detail.total_tokens) {
+          totalTokens += detail.total_tokens;
+        }
+      } catch (e) {
+        console.error('[WARN] 解析 AI profile detail log 失败:', e.message);
+      }
+    }
+  }
+  return totalTokens;
+}
 
 /**
  * 初始化浏览器实例并创建页面上下文
@@ -243,14 +288,6 @@ async function waitForPageReady() {
  * @author huangzhiyong081439
  */
 async function checkAssertion(assertionDescription) {
-  // 估算AI token消耗：根据输入输出文本长度估算
-  const estimateTokens = (text) => {
-    if (!text) return 0;
-    const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
-    const otherChars = text.length - chineseChars;
-    return Math.ceil(chineseChars / 2) + Math.ceil(otherChars / 4);
-  };
-  
   let result = {
     pass: false,
     expected: '',
@@ -268,19 +305,19 @@ async function checkAssertion(assertionDescription) {
     result.actual = `当前页面：${pageTitle} (${pageUrl})`;
     
     const prompt = `请判断当前页面是否满足：${assertionDescription}。如果满足，请回复"满足"；否则，请回复"不满足"。并简要说明原因。`;
+    
+    // 重置 AI profile logs 以捕获当前断言的 token 消耗
+    aiProfileLogs = [];
+    
     const aiResponse = await agent.ai(prompt);
     const responseText = aiResponse.toString();
     
-    // 估算token消耗
-    const inputTokens = estimateTokens(prompt);
-    const outputTokens = estimateTokens(responseText);
-    const totalTokens = inputTokens + outputTokens;
+    // 从捕获的 AI profile logs 中提取 token 消耗
+    const totalTokens = extractTotalTokensFromLogs();
     result.usage = {
-      prompt_tokens: inputTokens,
-      completion_tokens: outputTokens,
       total_tokens: totalTokens
     };
-    console.error(`[DEBUG] 断言AI token估算：输入${inputTokens} + 输出${outputTokens} = ${totalTokens}`);
+    console.error(`[DEBUG] 断言AI token消耗：${totalTokens}`);
     
     if (responseText.includes('满足') && !responseText.includes('不满足')) {
       result.pass = true;
@@ -394,21 +431,15 @@ async function executeSteps(steps) {
         const actionStartTime = Date.now();
         console.error(`⚡ 正在执行步骤 ${stepNumber} 的操作...`);
         
-        // 估算AI token消耗：根据输入输出文本长度估算
-        // 规则：中文每2个字符约1 token，英文每4个字符约1 token，图片根据尺寸估算
-        const estimateTokens = (text) => {
-          if (!text) return 0;
-          const chineseChars = (text.match(/[\u4e00-\u9fa5]/g) || []).length;
-          const otherChars = text.length - chineseChars;
-          return Math.ceil(chineseChars / 2) + Math.ceil(otherChars / 4);
-        };
+        // 重置 AI profile logs 以捕获当前操作的 token 消耗
+        aiProfileLogs = [];
         
         const actionAiResponse = await agent.ai(action);
-        const actionInputTokens = estimateTokens(action);
-        const actionOutputTokens = estimateTokens(actionAiResponse || '');
-        const actionTokens = actionInputTokens + actionOutputTokens;
+        
+        // 从捕获的 AI profile logs 中提取总 token 消耗
+        const actionTokens = extractTotalTokensFromLogs();
         stepResult.aiTokenUsed += actionTokens;
-        console.error(`[DEBUG] 主操作AI token估算：输入${actionInputTokens} + 输出${actionOutputTokens} = ${actionTokens}`);
+        console.error(`[DEBUG] 主操作AI token消耗：${actionTokens}`);
         
         const actionEndTime = Date.now();
         stepResult.executionStatus = '成功';
@@ -451,14 +482,10 @@ async function executeSteps(steps) {
             // 调试：打印完整的断言响应结构
             console.error(`[DEBUG] 断言AI响应类型: ${typeof assertionResult}`);
             console.error(`[DEBUG] 断言AI响应完整结构:`, JSON.stringify(assertionResult, null, 2));
-            // 累加断言的AI token消耗
-            if (assertionResult && assertionResult.usage) {
-              const assertionTokens = (assertionResult.usage.prompt_tokens || 0) + (assertionResult.usage.completion_tokens || 0) + (assertionResult.usage.total_tokens || 0);
-              stepResult.aiTokenUsed += assertionTokens || 0;
-              console.error(`[DEBUG] 断言AI token消耗: ${assertionTokens}, 单步总计: ${stepResult.aiTokenUsed}`);
-            } else {
-              console.error(`[DEBUG] 断言AI响应没有usage字段或响应为空`);
-            }
+            // 从捕获的 AI profile logs 中提取断言的 token 消耗
+            const assertionTokens = extractTotalTokensFromLogs();
+            stepResult.aiTokenUsed += assertionTokens || 0;
+            console.error(`[DEBUG] 断言AI token消耗: ${assertionTokens}, 单步总计: ${stepResult.aiTokenUsed}`);
             
             if (assertionResult.pass) {
               stepResult.assertionStatus = '通过';
