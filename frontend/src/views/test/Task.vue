@@ -349,6 +349,17 @@
           </template>
         </el-table-column>
       </el-table>
+      <div v-if="taskCaseTotal > 0" class="pagination" style="margin-top: 10px;">
+        <el-pagination
+          v-model:current-page="taskCasePageNum"
+          v-model:page-size="taskCasePageSize"
+          :total="taskCaseTotal"
+          :page-sizes="[5, 10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="loadTaskCaseExecutions"
+          @current-change="loadTaskCaseExecutions"
+        />
+      </div>
       
       <el-divider v-if="stepExecutionList.length > 0">步骤执行记录</el-divider>
       <el-table 
@@ -394,7 +405,7 @@
         <el-table-column prop="aiTokenUsed" width="150">
           <template #header>
             <span>AI token消耗
-              <el-tooltip content="估算规则：中文每2字符≈1 token，英文每4字符≈1 token" placement="top">
+              <el-tooltip content="数据来自Midscene AI调用的真实token消耗统计" placement="top">
                 <el-icon style="margin-left: 4px; cursor: pointer; color: var(--el-color-info);"><QuestionFilled /></el-icon>
               </el-tooltip>
             </span>
@@ -410,6 +421,17 @@
           </template>
         </el-table-column>
       </el-table>
+      <div v-if="stepTotal > 0" class="pagination" style="margin-top: 10px;">
+        <el-pagination
+          v-model:current-page="stepPageNum"
+          v-model:page-size="stepPageSize"
+          :total="stepTotal"
+          :page-sizes="[5, 10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="loadStepExecutions"
+          @current-change="loadStepExecutions"
+        />
+      </div>
       
       <template #footer>
         <el-button @click="executionVisible = false">关闭</el-button>
@@ -441,7 +463,7 @@ import { getExecutionList, getStepExecutions } from '@/api/testCaseExecution'
 const tableData = ref([])
 const total = ref(0)
 const pageNum = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(5)
 const keyword = ref('')
 const selectedIds = ref([])
 
@@ -507,8 +529,14 @@ const execPageNum = ref(1)
 const execPageSize = ref(5)
 const activeTaskExecutionRow = ref(null)
 const taskCaseExecutionList = ref([])
+const taskCasePageNum = ref(1)
+const taskCasePageSize = ref(5)
+const taskCaseTotal = ref(0)
 const activeCaseExecutionRow = ref(null)
 const stepExecutionList = ref([])
+const stepPageNum = ref(1)
+const stepPageSize = ref(5)
+const stepTotal = ref(0)
 const screenshotVisible = ref(false)
 const currentScreenshot = ref('')
 const refreshTimer = ref(null)
@@ -584,14 +612,16 @@ const caseExecutionTableRowClassName = ({ row }) => {
 const showTaskCaseExecutions = async (row) => {
   activeTaskExecutionRow.value = row.id
   taskCaseExecutionList.value = []
+  taskCasePageNum.value = 1
   stepExecutionList.value = []
   activeCaseExecutionRow.value = null
   
   try {
     // 直接获取该任务执行记录关联的用例执行记录
-    const res = await getExecutionList({ pageNum: 1, pageSize: 100, taskExecutionId: row.id })
+    const res = await getExecutionList({ pageNum: taskCasePageNum.value, pageSize: taskCasePageSize.value, taskExecutionId: row.id })
     if (res.code === 200 && res.data && res.data.records) {
       taskCaseExecutionList.value = res.data.records
+      taskCaseTotal.value = res.data.total || 0
       // 自动选中第一条
       if (taskCaseExecutionList.value.length > 0) {
         await showCaseStepExecutions(taskCaseExecutionList.value[0])
@@ -602,13 +632,53 @@ const showTaskCaseExecutions = async (row) => {
   }
 }
 
+// 加载任务用例执行记录分页
+const loadTaskCaseExecutions = async () => {
+  if (!activeTaskExecutionRow.value) return
+  try {
+    const res = await getExecutionList({ pageNum: taskCasePageNum.value, pageSize: taskCasePageSize.value, taskExecutionId: activeTaskExecutionRow.value })
+    if (res.code === 200 && res.data && res.data.records) {
+      taskCaseExecutionList.value = res.data.records
+      taskCaseTotal.value = res.data.total || 0
+    }
+  } catch (error) {
+    console.error('加载任务用例执行记录失败:', error)
+  }
+}
+
 // 点击用例执行记录，加载步骤执行记录
 const showCaseStepExecutions = async (row) => {
   activeCaseExecutionRow.value = row.id
+  stepPageNum.value = 1
   try {
-    const res = await getStepExecutions(row.id, 1, 100)
+    const res = await getStepExecutions(row.id, stepPageNum.value, stepPageSize.value)
     if (res.code === 200) {
-      stepExecutionList.value = Array.isArray(res.data) ? res.data : (res.data.records || [])
+      if (res.data.records) {
+        stepExecutionList.value = res.data.records
+        stepTotal.value = res.data.total || 0
+      } else {
+        stepExecutionList.value = Array.isArray(res.data) ? res.data : (res.data.records || [])
+        stepTotal.value = stepExecutionList.value.length
+      }
+    }
+  } catch (error) {
+    ElMessage.error('加载步骤执行记录失败')
+  }
+}
+
+// 加载步骤执行记录分页
+const loadStepExecutions = async () => {
+  if (!activeCaseExecutionRow.value) return
+  try {
+    const res = await getStepExecutions(activeCaseExecutionRow.value, stepPageNum.value, stepPageSize.value)
+    if (res.code === 200) {
+      if (res.data.records) {
+        stepExecutionList.value = res.data.records
+        stepTotal.value = res.data.total || 0
+      } else {
+        stepExecutionList.value = Array.isArray(res.data) ? res.data : (res.data.records || [])
+        stepTotal.value = stepExecutionList.value.length
+      }
     }
   } catch (error) {
     ElMessage.error('加载步骤执行记录失败')

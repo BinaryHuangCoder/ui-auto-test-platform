@@ -121,6 +121,17 @@
           </template>
         </el-table-column>
       </el-table>
+      <div v-if="stepTotal > 0" class="pagination" style="margin-top: 10px;">
+        <el-pagination
+          v-model:current-page="stepPageNum"
+          v-model:page-size="stepPageSize"
+          :total="stepTotal"
+          :page-sizes="[5, 10, 20, 50, 100]"
+          layout="total, sizes, prev, pager, next, jumper"
+          @size-change="loadSteps"
+          @current-change="loadSteps"
+        />
+      </div>
     </el-card>
     
     <!-- 执行详情对话框 -->
@@ -223,6 +234,9 @@ const detailVisible = ref(false)
 const screenshotVisible = ref(false)
 const currentExecution = ref(null)
 const stepList = ref([])
+const stepPageNum = ref(1)
+const stepPageSize = ref(5)
+const stepTotal = ref(0)
 const currentScreenshot = ref('')
 const refreshTimer = ref(null)
 const isRefreshing = ref(false)
@@ -300,6 +314,7 @@ const showDetail = async (row) => {
   console.log('showDetail called, row:', row)
   // 清空上一次的步骤执行记录
   stepList.value = []
+  stepPageNum.value = 1
   currentExecution.value = row
   
   try {
@@ -319,10 +334,16 @@ const loadSteps = async () => {
   if (!currentExecution.value) return
   
   try {
-    const res = await getStepExecutions(currentExecution.value.id)
+    const res = await getStepExecutions(currentExecution.value.id, stepPageNum.value, stepPageSize.value)
     console.log('步骤数据返回:', res)
-    if (res.code === 200 && res.data) {
-      stepList.value = res.data
+    if (res.code === 200) {
+      if (res.data.records) {
+        stepList.value = res.data.records
+        stepTotal.value = res.data.total || 0
+      } else {
+        stepList.value = res.data || []
+        stepTotal.value = stepList.value.length
+      }
       console.log('stepList赋值后:', stepList.value)
       
       // 如果执行已完成，停止自动刷新步骤
