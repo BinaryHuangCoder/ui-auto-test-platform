@@ -30,6 +30,7 @@
           <el-menu-item index="/system/user">用户管理</el-menu-item>
           <el-menu-item index="/system/department">部门管理</el-menu-item>
           <el-menu-item index="/system/system">系统管理</el-menu-item>
+          <el-menu-item index="/system/model">模型配置</el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
@@ -216,7 +217,9 @@ const pageTitle = computed(() => {
     '/test/task': '测试任务',
     '/test/report': '测试报告',
     '/system/user': '用户管理',
-    '/system/department': '部门管理'
+    '/system/department': '部门管理',
+    '/system/system': '系统管理',
+    '/system/model': '模型配置'
   }
   return titleMap[route.path] || 'UI自动化测试平台'
 })
