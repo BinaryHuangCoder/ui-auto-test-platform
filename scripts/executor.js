@@ -116,6 +116,97 @@ async function getModelConfigFromBackend(scenarioCode) {
 }
 
 /**
+ * 调用OpenAI兼容的大模型获取融合后的步骤描述
+ * @param {Object} model - 模型配置对象
+ * @param {string} stepDescription - 原始步骤描述
+ * @param {string} testData - 测试数据
+ * @returns {Promise<string>} 融合后的完整步骤描述
+ */
+async function fuseStepData(model, stepDescription, testData) {
+  return new Promise((resolve, reject) => {
+    // 确保URL以 /v1/chat/completions 结尾
+    let url = model.modelUrl;
+    if (!url.endsWith('/chat/completions')) {
+      if (!url.endsWith('/')) {
+        url += '/';
+      }
+      url += 'v1/chat/completions';
+    }
+
+    const requestBody = JSON.stringify({
+      model: model.modelName,
+      messages: [
+        {
+          role: 'system',
+          content: '你是一个UI自动化测试步骤融合助手。请将用户提供的步骤描述和测试数据融合成一个完整、可执行的UI自动化测试步骤描述。返回的结果应该只包含融合后的步骤描述，不要有其他说明文字。'
+        },
+        {
+          role: 'user',
+          content: `步骤描述：${stepDescription}\n测试数据：${testData}`
+        }
+      ],
+      max_tokens: 500,
+      temperature: 0.7
+    });
+
+    const options = {
+      hostname: '127.0.0.1',
+      port: 8088,
+      path: url, // Wait no, wait, if modelUrl is a full URL, we need to parse it! Let's parse it properly!
+      // Wait let's parse the modelUrl to get hostname, port, path
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${model.apiKey}`
+      }
+    };
+
+    // Parse the model URL to get hostname, port, path
+    try {
+      const urlObj = new URL(url);
+      options.hostname = urlObj.hostname;
+      options.port = urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80);
+      options.path = urlObj.pathname + urlObj.search;
+    } catch (e) {
+      console.error('[ERROR] 解析模型URL失败:', e.message);
+      reject(e);
+      return;
+    }
+
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => {
+        data += chunk;
+      });
+      res.on('end', () => {
+        try {
+          const result = JSON.parse(data);
+          if (result.choices && result.choices.length > 0 && result.choices[0].message) {
+            const fusedStep = result.choices[0].message.content.trim();
+            console.error('[INFO] 步骤数据融合完成:', fusedStep);
+            resolve(fusedStep);
+          } else {
+            console.error('[ERROR] 模型响应格式不正确:', data);
+            reject(new Error('模型响应格式不正确'));
+          }
+        } catch (e) {
+          console.error('[ERROR] 解析模型响应失败:', e.message, '响应数据:', data);
+          reject(e);
+        }
+      });
+    });
+
+    req.on('error', (err) => {
+      console.error('[ERROR] 调用步骤数据融合模型失败:', err.message);
+      reject(err);
+    });
+
+    req.write(requestBody);
+    req.end();
+  });
+}
+
+/**
  * 从捕获的 AI profile logs 中提取总 token 消耗
  * @returns {number} 总 token 消耗
  */
@@ -459,6 +550,8 @@ async function executeSteps(steps) {
   try {
     // 获取图像断言检查场景的模型配置
     await getModelConfigFromBackend('image_assertion');
+    // 获取步骤数据融合场景的模型配置
+    const stepFusionModel = await getModelConfigFromBackend('step_fusion');
     
     await initBrowser();
     
@@ -470,8 +563,21 @@ async function executeSteps(steps) {
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
       const stepNumber = step.stepNumber || i + 1;
-      const action = step.action;
+      let action = step.action;
       const assertion = step.assertion || '';
+      const testData = step.testData || '';
+      
+      // 如果有测试数据且配置了步骤数据融合模型，则进行数据融合
+      if (testData && testData.trim() && stepFusionModel) {
+        console.error(`🔄 步骤 ${stepNumber} 开始数据融合...`);
+        console.error(`   原始步骤: ${action}`);
+        console.error(`   测试数据: ${testData}`);
+        try {
+          action = await fuseStepData(stepFusionModel, action, testData);
+        } catch (e) {
+          console.error(`[WARN] 步骤数据融合失败，使用原始步骤: ${e.message}`);
+        }
+      }
       
       console.error('');
       console.error(`📊 步骤进度：[${stepNumber}/${steps.length}]`);
