@@ -144,7 +144,7 @@ public class ModelController {
     }
 
     /**
-     * 测试模型连接
+     * 测试模型连接（发送真实的OpenAI兼容请求）
      *
      * @param model 模型信息
      * @return 测试结果
@@ -154,6 +154,7 @@ public class ModelController {
         try {
             String url = model.getModelUrl();
             String apiKey = model.getApiKey();
+            String modelName = model.getModelName();
             
             if (url == null || url.isEmpty()) {
                 return Result.error("模型地址不能为空");
@@ -161,10 +162,45 @@ public class ModelController {
             if (apiKey == null || apiKey.isEmpty()) {
                 return Result.error("API Key不能为空");
             }
+            if (modelName == null || modelName.isEmpty()) {
+                return Result.error("模型名称不能为空");
+            }
             
-            // 简化测试：先只验证基本配置，不实际调用模型API
-            // 后续可以根据具体模型提供商调整测试逻辑
-            return Result.success("连接配置验证通过");
+            // 构造OpenAI兼容的请求体
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", modelName);
+            requestBody.put("messages", Arrays.asList(
+                new HashMap<String, String>() {{ 
+                    put("role", "user"); 
+                    put("content", "Hi"); 
+                }}
+            ));
+            requestBody.put("max_tokens", 5);
+            requestBody.put("temperature", 0.7);
+            
+            // 设置请求头
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + apiKey);
+            
+            org.springframework.http.HttpEntity<Map<String, Object>> entity = 
+                new org.springframework.http.HttpEntity<>(requestBody, headers);
+            
+            // 发送请求
+            org.springframework.http.ResponseEntity<String> response = 
+                restTemplate.postForEntity(url, entity, String.class);
+            
+            if (response.getStatusCode().is2xxSuccessful()) {
+                return Result.success("连接成功");
+            } else {
+                return Result.error("连接失败: HTTP " + response.getStatusCodeValue() + " - " + response.getBody());
+            }
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            e.printStackTrace();
+            return Result.error("连接失败: 无法访问模型地址，请检查网络和地址是否正确");
+        } catch (org.springframework.web.client.HttpClientErrorException e) {
+            e.printStackTrace();
+            return Result.error("连接失败: HTTP " + e.getStatusCode().value() + " - " + e.getResponseBodyAsString());
         } catch (Exception e) {
             e.printStackTrace();
             return Result.error("连接失败: " + e.getMessage());
