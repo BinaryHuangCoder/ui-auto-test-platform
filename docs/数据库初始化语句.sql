@@ -1,8 +1,12 @@
 -- =====================================================
 -- UI 自动化测试平台数据库初始化脚本
 -- 创建时间: 2026-04-01
--- 更新时间: 2026-04-13
--- 更新说明: 添加AI token消耗字段、测试任务表、测试任务与用例关联表、测试任务执行历史表、测试任务执行步骤详情表
+-- 更新时间: 2026-04-14
+-- 更新说明: 
+-- 1. 添加AI token消耗字段、测试任务表、测试任务与用例关联表、测试任务执行历史表、测试任务执行步骤详情表
+-- 2. 添加sys_system表（应用系统管理）
+-- 3. 修改sys_user表的avatar列为LONGTEXT
+-- 4. 修改菜单：系统管理→平台管理，新增系统管理子菜单
 -- =====================================================
 
 -- 创建数据库
@@ -109,7 +113,7 @@ CREATE TABLE `sys_user` (
   `status` tinyint(4) NOT NULL DEFAULT '1' COMMENT '状态：0-禁用，1-正常',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
-  `avatar` varchar(255) DEFAULT NULL COMMENT '头像',
+  `avatar` longtext DEFAULT NULL COMMENT '头像',
   `gender` varchar(10) DEFAULT NULL COMMENT '性别',
   `department` varchar(50) DEFAULT NULL COMMENT '部门',
   `phone` varchar(20) DEFAULT NULL COMMENT '电话',
@@ -144,9 +148,11 @@ INSERT INTO `sys_menu` VALUES
 (2, 0, '测试执行', '/execution', 'List', 2, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
 (3, 0, '测试用例', '/case', 'Document', 3, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
 (4, 0, '任务管理', '/task', 'Clock', 4, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
-(5, 0, '系统管理', '/system', 'Setting', 5, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
+(5, 0, '平台管理', '/system', 'Setting', 5, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
 (6, 5, '用户管理', '/system/user', 'User', 1, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
-(7, 5, '角色管理', '/system/role', 'Peoples', 2, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00');
+(7, 5, '角色管理', '/system/role', 'Peoples', 2, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
+(8, 5, '部门管理', '/system/department', 'OfficeBuilding', 3, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
+(9, 5, '系统管理', '/system/system', 'Monitor', 4, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00');
 
 -- =====================================================
 -- 测试用例表
@@ -366,6 +372,23 @@ INSERT INTO `department` (`name`, `parent_id`, `level`, `sort_order`, `leader`, 
 ('研发部', 0, 1, 1, '张三', 1),
 ('测试部', 0, 1, 2, '李四', 1),
 ('产品部', 0, 1, 3, '王五', 1);
+
+-- =====================================================
+-- 应用系统表
+-- =====================================================
+DROP TABLE IF EXISTS `sys_system`;
+CREATE TABLE `sys_system` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '系统ID',
+  `system_no` varchar(50) NOT NULL COMMENT '系统编号',
+  `system_name` varchar(200) NOT NULL COMMENT '系统名称',
+  `system_short_name` varchar(100) DEFAULT NULL COMMENT '系统简称',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：0-禁用，1-正常',
+  `source` varchar(20) NOT NULL DEFAULT 'manual' COMMENT '系统来源：manual-手工新增，external-外部同步',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_system_no` (`system_no`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='应用系统表';
 
 -- =====================================================
 -- 执行结果提示
