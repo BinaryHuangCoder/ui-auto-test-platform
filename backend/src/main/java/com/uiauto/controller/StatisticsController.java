@@ -26,7 +26,7 @@ import java.util.Map;
  */
 @Api(tags = "统计数据管理")
 @RestController
-@RequestMapping("/api/statistics")
+@RequestMapping("/statistics")
 public class StatisticsController {
 
     @Autowired
