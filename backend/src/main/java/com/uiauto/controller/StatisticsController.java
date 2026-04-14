@@ -4,6 +4,7 @@ package com.uiauto.controller;
 import com.uiauto.entity.TestCase;
 import com.uiauto.entity.TestCaseExecution;
 import com.uiauto.entity.TestTask;
+import com.uiauto.mapper.TestCaseExecutionMapper;
 import com.uiauto.service.TestCaseExecutionService;
 import com.uiauto.service.TestCaseService;
 import com.uiauto.service.TestTaskService;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -36,6 +38,9 @@ public class StatisticsController {
     private TestCaseExecutionService testCaseExecutionService;
 
     @Autowired
+    private TestCaseExecutionMapper testCaseExecutionMapper;
+
+    @Autowired
     private TestTaskService testTaskService;
 
     /**
@@ -52,18 +57,19 @@ public class StatisticsController {
         long totalCaseCount = testCaseService.count();
         stats.put("totalCaseCount", totalCaseCount);
 
+        // 获取每个用例的最新执行记录
+        List<TestCaseExecution> latestExecutions = testCaseExecutionMapper.getLatestExecutions();
+
         // 通过用例数（最近一次执行成功的用例数）
-        long successCaseCount = testCaseExecutionService.count(
-            new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<TestCaseExecution>()
-                .eq(TestCaseExecution::getStatus, "success")
-        );
+        long successCaseCount = latestExecutions.stream()
+                .filter(e -> "success".equals(e.getStatus()))
+                .count();
         stats.put("successCaseCount", successCaseCount);
 
         // 失败用例数（最近一次执行失败的用例数）
-        long failedCaseCount = testCaseExecutionService.count(
-            new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<TestCaseExecution>()
-                .eq(TestCaseExecution::getStatus, "failed")
-        );
+        long failedCaseCount = latestExecutions.stream()
+                .filter(e -> "failed".equals(e.getStatus()))
+                .count();
         stats.put("failedCaseCount", failedCaseCount);
 
         // 运行中任务数（暂时用启用的任务数）
