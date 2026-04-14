@@ -238,7 +238,15 @@
     </el-dialog>
     
     <!-- 查看执行历史对话框 -->
-    <el-dialog v-model="executionVisible" title="执行历史" width="90%" :close-on-click-modal="false">
+    <el-dialog v-model="executionVisible" width="90%" :close-on-click-modal="false">
+      <template #header>
+        <div class="card-header">
+          <span>执行历史</span>
+          <el-tag v-if="isRefreshing" type="warning" size="small">
+            <el-icon class="is-loading"><Loading /></el-icon> 自动刷新中
+          </el-tag>
+        </div>
+      </template>
       <el-divider>任务执行记录</el-divider>
       <el-table 
         :data="executionList" 
@@ -416,7 +424,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, nextTick } from 'vue'
+import { ref, reactive, onMounted, nextTick, watch, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Edit, Delete, Document, List, QuestionFilled, VideoPlay, Loading } from '@element-plus/icons-vue'
 import request from '@/api/request'
@@ -496,6 +504,8 @@ const activeCaseExecutionRow = ref(null)
 const stepExecutionList = ref([])
 const screenshotVisible = ref(false)
 const currentScreenshot = ref('')
+const refreshTimer = ref(null)
+const isRefreshing = ref(false)
 
 // 获取执行状态类型
 const getExecutionStatusType = (status) => {
@@ -711,6 +721,32 @@ const openExecutionDialog = (task) => {
   activeCaseExecutionRow.value = null
   stepExecutionList.value = []
   loadExecutions()
+  startAutoRefresh()
+}
+
+// 启动自动刷新（每5秒刷新一次）
+const startAutoRefresh = () => {
+  stopAutoRefresh()
+  isRefreshing.value = true
+  refreshTimer.value = setInterval(() => {
+    loadExecutions()
+    if (activeTaskExecutionRow.value) {
+      // 如果当前选中的任务执行记录状态是running，也刷新用例执行记录
+      const activeExecution = executionList.value.find(e => e.id === activeTaskExecutionRow.value)
+      if (activeExecution && activeExecution.status === 'running') {
+        showTaskCaseExecutions(activeExecution)
+      }
+    }
+  }, 5000)
+}
+
+// 停止自动刷新
+const stopAutoRefresh = () => {
+  if (refreshTimer.value) {
+    clearInterval(refreshTimer.value)
+    refreshTimer.value = null
+  }
+  isRefreshing.value = false
 }
 
 const loadExecutions = async () => {
@@ -726,6 +762,13 @@ const loadExecutions = async () => {
     if (res.code === 200) {
       executionList.value = res.data.records || []
       execTotal.value = res.data.total || 0
+      // 自动选中第一条（最新）执行记录
+      if (executionList.value.length > 0) {
+        // 如果当前没有选中，或者选中的不是第一条，就选中第一条
+        if (!activeTaskExecutionRow.value || activeTaskExecutionRow.value !== executionList.value[0].id) {
+          await showTaskCaseExecutions(executionList.value[0])
+        }
+      }
     } else {
       ElMessage.error(res.message || '查询失败')
     }
@@ -747,6 +790,18 @@ const formatDateTime = (dateTime) => {
   const seconds = String(date.getSeconds()).padStart(2, '0')
   return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
 }
+
+// 监听执行历史对话框关闭，停止自动刷新
+watch(executionVisible, (newVal) => {
+  if (!newVal) {
+    stopAutoRefresh()
+  }
+})
+
+// 组件卸载时清理定时器
+onUnmounted(() => {
+  stopAutoRefresh()
+})
 
 // 查询数据
 const fetchData = async () => {

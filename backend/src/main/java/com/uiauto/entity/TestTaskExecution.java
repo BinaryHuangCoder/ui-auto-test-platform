@@ -45,6 +45,12 @@ public class TestTaskExecution {
     private String executor;
 
     /**
+     * 执行人昵称（非数据库字段）
+     */
+    @com.baomidou.mybatisplus.annotation.TableField(exist = false)
+    private String executorNickname;
+
+    /**
      * 执行时间
      */
     private LocalDateTime executeTime;

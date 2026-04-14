@@ -84,7 +84,7 @@
               <span>最近任务</span>
             </div>
           </template>
-          <el-table :data="recentTasks" style="width: 100%" :show-header="false">
+          <el-table :data="recentTasks" style="width: 100%">
             <el-table-column prop="name" label="任务名称" />
             <el-table-column prop="status" label="状态" width="80">
               <template #default="scope">
