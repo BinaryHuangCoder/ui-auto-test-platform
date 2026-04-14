@@ -84,15 +84,14 @@ async function getModelConfigFromBackend(scenarioCode) {
             process.env.MIDSCENE_MODEL_BASE_URL = model.modelUrl;
             process.env.MIDSCENE_MODEL_API_KEY = model.apiKey;
             process.env.MIDSCENE_MODEL_NAME = model.modelName;
-            // 只在 modelFamily 是 Midscene 支持的值时才设置
-            const validModelFamilies = ['doubao-vision', 'doubao-text', 'openai-vision', 'openai-text'];
-            if (model.modelFamily && validModelFamilies.includes(model.modelFamily)) {
-              process.env.MIDSCENE_MODEL_FAMILY = model.modelFamily;
-            } else if (model.modelFamily && model.modelFamily.toLowerCase().includes('doubao')) {
-              process.env.MIDSCENE_MODEL_FAMILY = 'doubao-text'; // 默认豆包文本模型
+            // 根据模型名称或家族设置 MIDSCENE_MODEL_FAMILY
+            if (model.modelFamily && model.modelFamily.toLowerCase().includes('doubao')) {
+              process.env.MIDSCENE_MODEL_FAMILY = 'doubao-seed';
+            } else if (model.modelName && model.modelName.toLowerCase().includes('doubao')) {
+              process.env.MIDSCENE_MODEL_FAMILY = 'doubao-seed';
             } else {
-              // 不设置 MIDSCENE_MODEL_FAMILY，让 Midscene 自动推断
-              delete process.env.MIDSCENE_MODEL_FAMILY;
+              // 其他模型默认使用 gpt-4
+              process.env.MIDSCENE_MODEL_FAMILY = 'gpt-4';
             }
             // 兼容变量
             process.env.OPENAI_API_KEY = model.apiKey;
@@ -102,11 +101,7 @@ async function getModelConfigFromBackend(scenarioCode) {
             console.error('[INFO] MIDSCENE_MODEL_BASE_URL:', model.modelUrl);
             console.error('[INFO] MIDSCENE_MODEL_API_KEY:', model.apiKey.substring(0, 8) + '...');
             console.error('[INFO] MIDSCENE_MODEL_NAME:', model.modelName);
-            if (process.env.MIDSCENE_MODEL_FAMILY) {
-              console.error('[INFO] MIDSCENE_MODEL_FAMILY:', process.env.MIDSCENE_MODEL_FAMILY);
-            } else {
-              console.error('[INFO] MIDSCENE_MODEL_FAMILY: (未设置，自动推断)');
-            }
+            console.error('[INFO] MIDSCENE_MODEL_FAMILY:', process.env.MIDSCENE_MODEL_FAMILY);
             resolve(model);
           } else {
             console.error('[WARN] 场景未配置模型，使用默认配置');
