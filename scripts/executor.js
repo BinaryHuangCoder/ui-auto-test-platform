@@ -78,11 +78,14 @@ async function getModelConfigFromBackend(scenarioCode) {
           }
 
           const model = scenarioResult.data;
-          // 设置 Midscene 环境变量
+          // 设置 Midscene 环境变量（Midscene 使用 OPENAI_API_BASE 而非 OPENAI_BASE_URL）
           if (model && model.apiKey && model.modelUrl) {
             process.env.OPENAI_API_KEY = model.apiKey;
-            process.env.OPENAI_BASE_URL = model.modelUrl;
+            process.env.OPENAI_API_BASE = model.modelUrl;
+            process.env.OPENAI_BASE_URL = model.modelUrl; // 同时设置，兼容不同实现
             console.error('[INFO] 使用模型配置:', model.modelName);
+            console.error('[INFO] OPENAI_API_KEY:', model.apiKey.substring(0, 8) + '...');
+            console.error('[INFO] OPENAI_API_BASE:', model.modelUrl);
             resolve(model);
           } else {
             console.error('[WARN] 场景未配置模型，使用默认配置');
