@@ -3,12 +3,34 @@
     <el-card>
       <template #header>
         <div class="card-header">
-          <span>系统管理</span>
-          <el-button type="primary" icon="Plus" @click="handleAdd">添加系统</el-button>
+          <div class="toolbar-left">
+            <el-button type="primary" icon="Plus" @click="handleAdd">添加系统</el-button>
+            <el-button type="danger" icon="Delete" :disabled="!selectedIds.length" @click="batchDelete">批量删除</el-button>
+          </div>
+          <div class="toolbar-right">
+            <el-input 
+              v-model="keyword" 
+              placeholder="搜索系统编号/名称/简称" 
+              style="width: 280px;"
+              @keyup.enter="loadData"
+              clearable
+              @clear="loadData"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </div>
         </div>
       </template>
 
-      <el-table :data="tableData" style="width: 100%" v-loading="loading">
+      <el-table 
+        :data="tableData" 
+        style="width: 100%" 
+        v-loading="loading"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="55" />
         <el-table-column prop="systemNo" label="系统编号" min-width="140" />
         <el-table-column prop="systemName" label="系统名称" min-width="180" />
         <el-table-column prop="systemShortName" label="系统简称" min-width="120" />
@@ -78,6 +100,7 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
+import { Search } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getSystemList, addSystem, updateSystem, deleteSystem } from '@/api/system'
 
@@ -89,6 +112,10 @@ const pageSize = ref(10)
 const total = ref(0)
 // 加载状态
 const loading = ref(false)
+// 搜索关键词
+const keyword = ref('')
+// 选中的ID列表
+const selectedIds = ref([])
 
 // 对话框状态
 const dialogVisible = ref(false)
@@ -132,7 +159,8 @@ const loadData = async () => {
   try {
     const res = await getSystemList({
       pageNum: pageNum.value,
-      pageSize: pageSize.value
+      pageSize: pageSize.value,
+      keyword: keyword.value
     })
     if (res.code === 200) {
       const data = res.data
@@ -189,6 +217,37 @@ const handleEdit = (row) => {
  * 删除系统按钮点击事件
  * @param {Object} row - 系统行数据
  */
+const handleSelectionChange = (selection) => {
+  selectedIds.value = selection.map(item => item.id)
+}
+
+const batchDelete = async () => {
+  try {
+    await ElMessageBox.confirm(
+      '确定要删除选中的 ' + selectedIds.value.length + ' 个系统吗？',
+      '警告',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+
+    // 批量删除，这里简单起见，逐个删除
+    for (const id of selectedIds.value) {
+      await deleteSystem(id)
+    }
+    ElMessage.success('批量删除成功')
+    selectedIds.value = []
+    loadData()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量删除系统失败:', error)
+      ElMessage.error('批量删除失败')
+    }
+  }
+}
+
 const handleDelete = async (row) => {
   try {
     await ElMessageBox.confirm(
@@ -272,6 +331,15 @@ const submitForm = async () => {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    .toolbar-left {
+      display: flex;
+      gap: 10px;
+    }
+    .toolbar-right {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
   }
 
   .pagination {

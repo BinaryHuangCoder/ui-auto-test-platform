@@ -117,27 +117,7 @@
       </template>
     </el-dialog>
     
-    <!-- 图片裁剪对话框 -->
-    <el-dialog v-model="cropperVisible" title="编辑头像" width="700px">
-      <div class="cropper-container">
-        <div class="cropper-wrapper">
-          <img ref="cropperImageRef" :src="cropperSrc" style="max-width: 100%;" />
-        </div>
-        <div class="cropper-tools">
-          <el-button-group>
-            <el-button size="small" @click="rotateLeft">左转</el-button>
-            <el-button size="small" @click="rotateRight">右转</el-button>
-            <el-button size="small" @click="zoomIn">放大</el-button>
-            <el-button size="small" @click="zoomOut">缩小</el-button>
-            <el-button size="small" @click="resetCropper">重置</el-button>
-          </el-button-group>
-        </div>
-      </div>
-      <template #footer>
-        <el-button @click="cropperVisible = false">取消</el-button>
-        <el-button type="primary" @click="confirmCrop">确定</el-button>
-      </template>
-    </el-dialog>
+
     
     <!-- 重置密码对话框 -->
     <el-dialog v-model="resetPwdVisible" title="重置密码" width="400px">
@@ -314,61 +294,10 @@ const beforeAvatarUpload = (file) => {
 const uploadAvatar = (options) => {
   const reader = new FileReader()
   reader.onload = (e) => {
-    cropperSrc.value = e.target.result
-    cropperVisible.value = true
-    nextTick(() => {
-      initCropper()
-    })
+    profileForm.value.avatar = e.target.result
+    ElMessage.success('头像上传成功')
   }
   reader.readAsDataURL(options.file)
-}
-
-const initCropper = () => {
-  if (cropperInstance) {
-    cropperInstance.destroy()
-  }
-  if (cropperImageRef.value) {
-    cropperInstance = new Cropper(cropperImageRef.value, {
-      aspectRatio: 1,
-      viewMode: 1,
-      dragMode: 'move',
-      autoCropArea: 0.8,
-      restore: false,
-      guides: true,
-      center: true,
-      highlight: false,
-      cropBoxMovable: true,
-      cropBoxResizable: true,
-      toggleDragModeOnDblclick: false
-    })
-  }
-}
-
-const rotateLeft = () => {
-  cropperInstance && cropperInstance.rotate(-90)
-}
-
-const rotateRight = () => {
-  cropperInstance && cropperInstance.rotate(90)
-}
-
-const zoomIn = () => {
-  cropperInstance && cropperInstance.zoom(0.1)
-}
-
-const zoomOut = () => {
-  cropperInstance && cropperInstance.zoom(-0.1)
-}
-
-const resetCropper = () => {
-  cropperInstance && cropperInstance.reset()
-}
-
-const confirmCrop = () => {
-  if (!cropperInstance) return
-  const canvas = cropperInstance.getCroppedCanvas({ width: 200, height: 200 })
-  profileForm.value.avatar = canvas.toDataURL('image/jpeg')
-  cropperVisible.value = false
 }
 
 const saveProfile = async () => {
