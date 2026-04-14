@@ -48,6 +48,11 @@
             {{ formatDateTime(scope.row.createTime) }}
           </template>
         </el-table-column>
+        <el-table-column prop="latestExecuteTime" label="最新执行时间" width="170">
+          <template #default="scope">
+            {{ formatDateTime(scope.row.latestExecuteTime) }}
+          </template>
+        </el-table-column>
         <el-table-column prop="cronExpression" label="定时策略" min-width="150" show-overflow-tooltip>
           <template #default="scope">
             <el-tag v-if="scope.row.cronExpression" type="info" size="small">

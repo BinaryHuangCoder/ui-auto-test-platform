@@ -4,8 +4,10 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.uiauto.entity.TestTask;
+import com.uiauto.entity.TestTaskExecution;
 import com.uiauto.entity.User;
 import com.uiauto.mapper.TestTaskMapper;
+import com.uiauto.service.TestTaskExecutionService;
 import com.uiauto.service.TestTaskService;
 import com.uiauto.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,6 +31,9 @@ public class TestTaskServiceImpl extends ServiceImpl<TestTaskMapper, TestTask> i
     
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private TestTaskExecutionService testTaskExecutionService;
     
     @Override
     public Page<TestTask> pageQuery(Integer pageNum, Integer pageSize, String keyword) {
@@ -52,9 +57,10 @@ public class TestTaskServiceImpl extends ServiceImpl<TestTaskMapper, TestTask> i
         
         Page<TestTask> resultPage = this.page(page, wrapper);
         
-        // 填充创建人昵称
+        // 填充创建人昵称和最新执行时间
         List<TestTask> records = resultPage.getRecords();
         if (records != null && !records.isEmpty()) {
+            // 填充创建人昵称
             List<String> usernames = records.stream()
                 .map(TestTask::getCreator)
                 .filter(username -> username != null && !username.isEmpty())
@@ -72,6 +78,35 @@ public class TestTaskServiceImpl extends ServiceImpl<TestTaskMapper, TestTask> i
                 for (TestTask task : records) {
                     if (task.getCreator() != null) {
                         task.setCreatorNickname(usernameToNickname.get(task.getCreator()));
+                    }
+                }
+            }
+
+            // 填充最新执行时间
+            List<Long> taskIds = records.stream()
+                .map(TestTask::getId)
+                .filter(id -> id != null)
+                .collect(Collectors.toList());
+
+            if (!taskIds.isEmpty()) {
+                // 为每个任务获取最新的执行记录
+                LambdaQueryWrapper<TestTaskExecution> executionWrapper = new LambdaQueryWrapper<>();
+                executionWrapper.in(TestTaskExecution::getTaskId, taskIds);
+                executionWrapper.orderByDesc(TestTaskExecution::getExecuteTime);
+                List<TestTaskExecution> executions = testTaskExecutionService.list(executionWrapper);
+
+                // 按 taskId 分组，取每个 taskId 的第一条（最新的）
+                Map<Long, TestTaskExecution> latestExecutionMap = executions.stream()
+                    .collect(Collectors.toMap(
+                        TestTaskExecution::getTaskId,
+                        e -> e,
+                        (existing, replacement) -> existing // 保留第一条
+                    ));
+
+                for (TestTask task : records) {
+                    TestTaskExecution latestExecution = latestExecutionMap.get(task.getId());
+                    if (latestExecution != null) {
+                        task.setLatestExecuteTime(latestExecution.getExecuteTime());
                     }
                 }
             }

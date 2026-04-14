@@ -54,6 +54,12 @@ public class TestTask {
      */
     @TableField(exist = false)
     private String creatorNickname;
+
+    /**
+     * 最新执行时间（非数据库字段，用于前端显示）
+     */
+    @TableField(exist = false)
+    private LocalDateTime latestExecuteTime;
     
     /**
      * 定时策略（cron表达式）
