@@ -290,7 +290,8 @@ public class UserController {
                 return Result.error("保存失败");
             }
         } catch (Exception e) {
-            return Result.error(401, "token 验证失败");
+            e.printStackTrace();
+            return Result.error("保存失败：" + e.getMessage());
         }
     }
     
