@@ -26,6 +26,7 @@ const { PlaywrightAgent } = require('@midscene/web/playwright');
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const https = require('https');
 
 let browser;
 let page;
@@ -181,7 +182,9 @@ async function fuseStepData(model, stepDescription, testData) {
       return;
     }
 
-    const req = http.request(options, (res) => {
+    // 使用 http 或 https 模块根据协议
+    const client = urlObj.protocol === 'https:' ? https : http;
+    const req = client.request(options, (res) => {
       let data = '';
       res.on('data', (chunk) => {
         data += chunk;
