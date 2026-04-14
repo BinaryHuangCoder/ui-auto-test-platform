@@ -641,15 +641,20 @@ public class TestCaseExecutionController {
      * 获取步骤执行详情列表
      * 
      * @param executionId 执行记录ID
+     * @param pageNum 页码，默认1
+     * @param pageSize 每页条数，默认10
      * @return 步骤执行详情列表
      */
     @GetMapping("/{executionId}/steps")
-    public Result<List<TestStepExecution>> getSteps(@PathVariable Long executionId) {
-        List<TestStepExecution> steps = stepExecutionService.list(
-            new LambdaQueryWrapper<TestStepExecution>()
-                .eq(TestStepExecution::getExecutionId, executionId)
-                .orderByAsc(TestStepExecution::getStepNo)
-        );
-        return Result.success(steps);
+    public Result<Page<TestStepExecution>> getSteps(
+            @PathVariable Long executionId,
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize) {
+        Page<TestStepExecution> page = new Page<>(pageNum, pageSize);
+        LambdaQueryWrapper<TestStepExecution> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(TestStepExecution::getExecutionId, executionId);
+        wrapper.orderByAsc(TestStepExecution::getStepNo);
+        Page<TestStepExecution> result = stepExecutionService.page(page, wrapper);
+        return Result.success(result);
     }
 }
