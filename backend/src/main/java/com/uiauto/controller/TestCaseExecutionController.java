@@ -129,6 +129,9 @@ public class TestCaseExecutionController {
                     stepsJson.append("\"action\":\"").append(escapeJson(step.getStepDescription())).append("\"");
                     stepsJson.append(",\"assertion\":\"").append(escapeJson(step.getAssertionDescription() != null ? step.getAssertionDescription() : "")).append("\"");
                     stepsJson.append(",\"stepNumber\":").append(step.getStepNo());
+                    if (step.getTestData() != null && !step.getTestData().isEmpty()) {
+                        stepsJson.append(",\"testData\":\"").append(escapeJson(step.getTestData())).append("\"");
+                    }
                     stepsJson.append("}");
                 }
                 stepsJson.append("]");
