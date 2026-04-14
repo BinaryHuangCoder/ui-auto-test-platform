@@ -141,7 +141,7 @@ const recentTasks = ref([
 // 加载统计数据
 const loadStats = async () => {
   try {
-    const res = await request.get('/statistics/dashboard')
+    const res = await request.get('/api/statistics/dashboard')
     if (res.code === 200 && res.data) {
       Object.assign(stats, res.data)
     }
