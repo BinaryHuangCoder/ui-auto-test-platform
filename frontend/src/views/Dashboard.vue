@@ -9,7 +9,7 @@
               <el-icon :size="30"><Document /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">128</div>
+              <div class="stat-value">{{ stats.totalCaseCount || 0 }}</div>
               <div class="stat-label">测试用例</div>
             </div>
           </div>
@@ -23,7 +23,7 @@
               <el-icon :size="30"><SuccessFilled /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">96</div>
+              <div class="stat-value">{{ stats.successCaseCount || 0 }}</div>
               <div class="stat-label">通过用例</div>
             </div>
           </div>
@@ -37,7 +37,7 @@
               <el-icon :size="30"><VideoPlay /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">24</div>
+              <div class="stat-value">{{ stats.runningTaskCount || 0 }}</div>
               <div class="stat-label">运行中任务</div>
             </div>
           </div>
@@ -51,7 +51,7 @@
               <el-icon :size="30"><CircleClose /></el-icon>
             </div>
             <div class="stat-info">
-              <div class="stat-value">3</div>
+              <div class="stat-value">{{ stats.failedCaseCount || 0 }}</div>
               <div class="stat-label">失败用例</div>
             </div>
           </div>
@@ -121,7 +121,15 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
+import request from '@/api/request'
+
+const stats = reactive({
+  totalCaseCount: 0,
+  successCaseCount: 0,
+  failedCaseCount: 0,
+  runningTaskCount: 0
+})
 
 const recentTasks = ref([
   { name: '登录功能测试', status: '成功', statusType: 'success', time: '2026-03-26 10:30' },
@@ -129,6 +137,23 @@ const recentTasks = ref([
   { name: '支付流程测试', status: '成功', statusType: 'success', time: '2026-03-26 09:45' },
   { name: '用户管理测试', status: '失败', statusType: 'danger', time: '2026-03-26 09:20' }
 ])
+
+// 加载统计数据
+const loadStats = async () => {
+  try {
+    const res = await request.get('/statistics/dashboard')
+    if (res.code === 200 && res.data) {
+      Object.assign(stats, res.data)
+    }
+  } catch (error) {
+    console.error('加载统计数据失败:', error)
+  }
+}
+
+// 初始化
+onMounted(() => {
+  loadStats()
+})
 </script>
 
 <style scoped lang="scss">

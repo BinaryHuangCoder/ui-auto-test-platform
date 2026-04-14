@@ -112,12 +112,51 @@
           <el-input v-model="formData.taskName" placeholder="请输入任务名称" maxlength="200" show-word-limit />
         </el-form-item>
         <el-form-item label="定时策略" prop="cronExpression">
-          <el-input v-model="formData.cronExpression" placeholder="请输入cron表达式，例如：0 0 12 * * ?" maxlength="100" />
+          <el-tabs v-model="cronTabType" type="card" style="width: 100%;">
+            <el-tab-pane label="预设" name="preset">
+              <el-select v-model="cronPreset" placeholder="选择常用定时策略" style="width: 100%;" @change="onCronPresetChange">
+                <el-option label="每天 00:00 执行" value="0 0 0 * * ?" />
+                <el-option label="每天 08:00 执行" value="0 0 8 * * ?" />
+                <el-option label="每天 12:00 执行" value="0 0 12 * * ?" />
+                <el-option label="每天 18:00 执行" value="0 0 18 * * ?" />
+                <el-option label="每小时执行一次" value="0 0 * * * ?" />
+                <el-option label="每30分钟执行一次" value="0 0/30 * * * ?" />
+                <el-option label="每10分钟执行一次" value="0 0/10 * * * ?" />
+                <el-option label="每分钟执行一次" value="0 * * * * ?" />
+                <el-option label="每周一 09:00 执行" value="0 0 9 ? * MON" />
+                <el-option label="每周五 18:00 执行" value="0 0 18 ? * FRI" />
+                <el-option label="每月1号 00:00 执行" value="0 0 0 1 * ?" />
+              </el-select>
+            </el-tab-pane>
+            <el-tab-pane label="自定义" name="custom">
+              <el-form :model="cronCustom" label-width="80px" style="margin-top: 10px;">
+                <el-form-item label="秒">
+                  <el-input v-model="cronCustom.second" placeholder="0-59，* 表示每秒钟" style="width: 200px;" />
+                </el-form-item>
+                <el-form-item label="分">
+                  <el-input v-model="cronCustom.minute" placeholder="0-59，* 表示每分钟" style="width: 200px;" />
+                </el-form-item>
+                <el-form-item label="时">
+                  <el-input v-model="cronCustom.hour" placeholder="0-23，* 表示每小时" style="width: 200px;" />
+                </el-form-item>
+                <el-form-item label="日">
+                  <el-input v-model="cronCustom.day" placeholder="1-31，? 表示不指定" style="width: 200px;" />
+                </el-form-item>
+                <el-form-item label="月">
+                  <el-input v-model="cronCustom.month" placeholder="1-12，* 表示每月" style="width: 200px;" />
+                </el-form-item>
+                <el-form-item label="周">
+                  <el-input v-model="cronCustom.week" placeholder="1-7 (1=周日)，? 表示不指定" style="width: 200px;" />
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" @click="generateCronFromCustom">生成Cron表达式</el-button>
+                </el-form-item>
+              </el-form>
+            </el-tab-pane>
+          </el-tabs>
+          <el-input v-model="formData.cronExpression" placeholder="Cron表达式" style="margin-top: 10px;" maxlength="100" />
           <div style="font-size: 12px; color: #909399; margin-top: 5px;">
-            常用cron示例：<br/>
-            每天12点执行：0 0 12 * * ?<br/>
-            每小时执行一次：0 0 * * * ?<br/>
-            每周一早上9点：0 0 9 ? * MON
+            Cron表达式格式：秒 分 时 日 月 周
           </div>
         </el-form-item>
         <el-form-item label="状态" prop="status">
@@ -150,6 +189,7 @@
       </div>
       
       <el-table 
+        ref="caseTableRef"
         :data="caseTableData" 
         style="width: 100%"
         @selection-change="handleCaseSelectionChange"
@@ -371,7 +411,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Edit, Delete, Document, List, QuestionFilled, VideoPlay, Loading } from '@element-plus/icons-vue'
 import request from '@/api/request'
@@ -398,6 +438,29 @@ const formData = reactive({
   status: 1
 })
 
+// Cron表达式生成器
+const cronTabType = ref('preset')
+const cronPreset = ref('')
+const cronCustom = reactive({
+  second: '0',
+  minute: '0',
+  hour: '0',
+  day: '?',
+  month: '*',
+  week: '?'
+})
+
+// 选择预设Cron
+const onCronPresetChange = (value) => {
+  formData.cronExpression = value
+}
+
+// 从自定义选项生成Cron表达式
+const generateCronFromCustom = () => {
+  const { second, minute, hour, day, month, week } = cronCustom
+  formData.cronExpression = `${second} ${minute} ${hour} ${day} ${month} ${week}`
+}
+
 const formRules = {
   taskName: [
     { required: true, message: '请输入任务名称', trigger: 'blur' },
@@ -414,6 +477,7 @@ const casePageNum = ref(1)
 const casePageSize = ref(20)
 const caseKeyword = ref('')
 const selectedCaseIds = ref([])
+const caseTableRef = ref(null)
 
 // 执行历史对话框
 const executionVisible = ref(false)
@@ -566,6 +630,16 @@ const fetchCaseList = async () => {
     if (res.code === 200) {
       caseTableData.value = res.data.records || []
       caseTotal.value = res.data.total || 0
+      
+      // 自动勾选已关联的用例
+      await nextTick()
+      if (caseTableRef.value && selectedCaseIds.value.length > 0) {
+        caseTableData.value.forEach(row => {
+          if (selectedCaseIds.value.includes(row.id)) {
+            caseTableRef.value.toggleRowSelection(row, true)
+          }
+        })
+      }
     } else {
       ElMessage.error(res.message || '查询失败')
     }
