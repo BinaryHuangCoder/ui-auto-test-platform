@@ -349,7 +349,8 @@
           </template>
         </el-table-column>
       </el-table>
-      <div v-if="taskCaseTotal > 0" class="pagination" style="margin-top: 10px;">
+
+      <div v-if="taskCaseTotal > 0" class="pagination" style="margin-top: 10px; display: flex; justify-content: flex-end;">
         <el-pagination
           v-model:current-page="taskCasePageNum"
           v-model:page-size="taskCasePageSize"
@@ -421,7 +422,7 @@
           </template>
         </el-table-column>
       </el-table>
-      <div v-if="stepTotal > 0" class="pagination" style="margin-top: 10px;">
+      <div v-if="stepTotal > 0" class="pagination" style="margin-top: 10px; display: flex; justify-content: flex-end;">
         <el-pagination
           v-model:current-page="stepPageNum"
           v-model:page-size="stepPageSize"
