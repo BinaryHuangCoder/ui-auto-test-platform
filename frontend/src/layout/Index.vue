@@ -18,19 +18,40 @@
             <el-icon><Document /></el-icon>
             <span>测试管理</span>
           </template>
-          <el-menu-item index="/test/case">测试用例</el-menu-item>
-          <el-menu-item index="/test/task">测试任务</el-menu-item>
-          <el-menu-item index="/test/report">测试报告</el-menu-item>
+          <el-menu-item index="/test/case">
+            <el-icon><Document /></el-icon>
+            测试用例
+          </el-menu-item>
+          <el-menu-item index="/test/task">
+            <el-icon><List /></el-icon>
+            测试任务
+          </el-menu-item>
+          <el-menu-item index="/test/report">
+            <el-icon><DataAnalysis /></el-icon>
+            测试报告
+          </el-menu-item>
         </el-sub-menu>
         <el-sub-menu index="/system">
           <template #title>
             <el-icon><Setting /></el-icon>
             <span>平台管理</span>
           </template>
-          <el-menu-item index="/system/user">用户管理</el-menu-item>
-          <el-menu-item index="/system/department">部门管理</el-menu-item>
-          <el-menu-item index="/system/system">系统管理</el-menu-item>
-          <el-menu-item index="/system/model">模型配置</el-menu-item>
+          <el-menu-item index="/system/user">
+            <el-icon><User /></el-icon>
+            用户管理
+          </el-menu-item>
+          <el-menu-item index="/system/department">
+            <el-icon><OfficeBuilding /></el-icon>
+            部门管理
+          </el-menu-item>
+          <el-menu-item index="/system/system">
+            <el-icon><Monitor /></el-icon>
+            系统管理
+          </el-menu-item>
+          <el-menu-item index="/system/model">
+            <el-icon><Cpu /></el-icon>
+            模型管理
+          </el-menu-item>
         </el-sub-menu>
       </el-menu>
     </el-aside>
@@ -154,6 +175,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import Cropper from 'cropperjs'
+import { HomeFilled, Document, List, DataAnalysis, Setting, User, OfficeBuilding, Monitor, Cpu, UserFilled, Lock, SwitchButton, Plus, ArrowDown } from '@element-plus/icons-vue'
 import { resetPassword, changePassword, getUserInfo, updateUserProfile } from '@/api/user'
 import { getDepartmentList } from '@/api/department'
 
@@ -219,7 +241,7 @@ const pageTitle = computed(() => {
     '/system/user': '用户管理',
     '/system/department': '部门管理',
     '/system/system': '系统管理',
-    '/system/model': '模型配置'
+    '/system/model': '模型管理'
   }
   return titleMap[route.path] || 'UI自动化测试平台'
 })

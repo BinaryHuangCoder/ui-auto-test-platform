@@ -76,7 +76,7 @@ const routes = [
         path: 'system/model',
         name: 'ModelManagement',
         component: () => import('@/views/system/Model.vue'),
-        meta: { title: '模型配置', icon: 'Setting' }
+        meta: { title: '模型管理', icon: 'Setting' }
       }
     ]
   }

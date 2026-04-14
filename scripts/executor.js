@@ -25,6 +25,7 @@ const { chromium } = require('playwright-core');
 const { PlaywrightAgent } = require('@midscene/web/playwright');
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 
 let browser;
 let page;
@@ -43,6 +44,65 @@ process.stderr.write = (chunk) => {
   }
   return originalStderrWrite.call(process.stderr, chunk);
 };
+
+/**
+ * 从后端获取场景对应的模型配置
+ * @param {string} scenarioCode - 场景编码
+ * @returns {Promise<Object|null>} 模型配置
+ */
+async function getModelConfigFromBackend(scenarioCode) {
+  return new Promise((resolve, reject) => {
+    // 从后端获取场景配置
+    const getScenarioOptions = {
+      hostname: '127.0.0.1',
+      port: 8088,
+      path: `/api/model/scenarios/${scenarioCode}/model`,
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    };
+
+    const scenarioReq = http.request(getScenarioOptions, (scenarioRes) => {
+      let scenarioData = '';
+      scenarioRes.on('data', (chunk) => {
+        scenarioData += chunk;
+      });
+      scenarioRes.on('end', () => {
+        try {
+          const scenarioResult = JSON.parse(scenarioData);
+          if (scenarioResult.code !== 200 || !scenarioResult.data) {
+            console.error('[WARN] 无法从后端获取场景配置:', scenarioResult.message);
+            resolve(null);
+            return;
+          }
+
+          const model = scenarioResult.data;
+          // 设置 Midscene 环境变量
+          if (model && model.apiKey && model.modelUrl) {
+            process.env.OPENAI_API_KEY = model.apiKey;
+            process.env.OPENAI_BASE_URL = model.modelUrl;
+            console.error('[INFO] 使用模型配置:', model.modelName);
+            resolve(model);
+          } else {
+            console.error('[WARN] 场景未配置模型，使用默认配置');
+            resolve(null);
+          }
+        } catch (e) {
+          console.error('[ERROR] 解析场景配置响应失败:', e.message);
+          resolve(null);
+        }
+      });
+    });
+
+    scenarioReq.on('error', (err) => {
+      console.error('[ERROR] 请求场景配置失败:', err.message);
+      resolve(null);
+    });
+
+    scenarioReq.end();
+  });
+}
 
 /**
  * 从捕获的 AI profile logs 中提取总 token 消耗
@@ -386,6 +446,9 @@ async function executeSteps(steps) {
   }
   
   try {
+    // 获取图像断言检查场景的模型配置
+    await getModelConfigFromBackend('image_assertion');
+    
     await initBrowser();
     
     console.error('');

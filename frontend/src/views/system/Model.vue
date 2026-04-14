@@ -6,6 +6,7 @@
           <div class="toolbar-left">
             <el-button type="primary" icon="Plus" @click="handleAdd">添加模型</el-button>
             <el-button type="danger" icon="Delete" :disabled="!selectedIds.length" @click="batchDelete">批量删除</el-button>
+            <el-button type="warning" icon="Setting" @click="openScenarioConfig">模型配置</el-button>
           </div>
           <div class="toolbar-right">
             <el-input 
@@ -47,8 +48,9 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="170" />
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="scope">
+            <el-button size="small" icon="Connection" @click="handleTestConnection(scope.row)">测试连接</el-button>
             <el-button size="small" icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
             <el-button size="small" type="danger" icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
           </template>
@@ -92,14 +94,34 @@
         <el-button type="primary" @click="submitForm" :loading="submitLoading">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 模型配置对话框 -->
+    <el-dialog v-model="scenarioDialogVisible" title="模型配置" width="550px">
+      <el-form ref="scenarioFormRef" :model="scenarioForm" label-width="120px">
+        <el-form-item label="图像断言检查">
+          <el-select v-model="scenarioForm.imageAssertionModelId" placeholder="请选择模型" clearable style="width: 100%;">
+            <el-option v-for="model in allModels" :key="model.id" :label="model.modelName" :value="model.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="步骤数据融合">
+          <el-select v-model="scenarioForm.stepFusionModelId" placeholder="请选择模型" clearable style="width: 100%;">
+            <el-option v-for="model in allModels" :key="model.id" :label="model.modelName" :value="model.id" />
+          </el-select>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="scenarioDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitScenarioConfig" :loading="scenarioLoading">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { Search } from '@element-plus/icons-vue'
+import { Search, Connection, Setting } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getModelList, addModel, updateModel, deleteModel } from '@/api/model'
+import { getModelList, addModel, updateModel, deleteModel, testModelConnection, getModelScenarios, updateModelScenario } from '@/api/model'
 
 // 表格数据
 const tableData = ref([])
@@ -138,12 +160,110 @@ const formRules = {
   ]
 }
 
+// 模型配置对话框状态
+const scenarioDialogVisible = ref(false)
+const scenarioLoading = ref(false)
+const scenarioFormRef = ref(null)
+const allModels = ref([])
+
+// 场景配置表单数据
+const scenarioForm = reactive({
+  imageAssertionModelId: null,
+  stepFusionModelId: null
+})
+
 /**
  * 页面加载时初始化数据
  */
 onMounted(() => {
   loadData()
+  loadAllModels()
 })
+
+/**
+ * 加载所有可用模型
+ */
+const loadAllModels = async () => {
+  try {
+    const res = await getModelList({ pageNum: 1, pageSize: 1000 })
+    if (res.code === 200) {
+      const data = res.data
+      if (data.records) {
+        allModels.value = data.records
+      } else if (Array.isArray(data)) {
+        allModels.value = data
+      }
+    }
+  } catch (error) {
+    console.error('加载所有模型失败:', error)
+  }
+}
+
+/**
+ * 测试模型连接
+ * @param {Object} row - 模型信息
+ */
+const handleTestConnection = async (row) => {
+  try {
+    const res = await testModelConnection(row)
+    if (res.code === 200) {
+      ElMessage.success('连接成功')
+    } else {
+      ElMessage.error(res.message || '连接失败')
+    }
+  } catch (error) {
+    console.error('测试连接失败:', error)
+    ElMessage.error('连接失败')
+  }
+}
+
+/**
+ * 打开模型配置对话框
+ */
+const openScenarioConfig = async () => {
+  try {
+    const res = await getModelScenarios()
+    if (res.code === 200) {
+      const scenarios = res.data || []
+      // 初始化场景表单
+      for (const scenario of scenarios) {
+        if (scenario.scenarioCode === 'image_assertion') {
+          scenarioForm.imageAssertionModelId = scenario.modelId
+        } else if (scenario.scenarioCode === 'step_fusion') {
+          scenarioForm.stepFusionModelId = scenario.modelId
+        }
+      }
+      scenarioDialogVisible.value = true
+    }
+  } catch (error) {
+    console.error('加载场景配置失败:', error)
+    ElMessage.error('加载场景配置失败')
+  }
+}
+
+/**
+ * 提交模型配置
+ */
+const submitScenarioConfig = async () => {
+  scenarioLoading.value = true
+  try {
+    // 更新图像断言检查场景
+    if (scenarioForm.imageAssertionModelId) {
+      await updateModelScenario('image_assertion', { modelId: scenarioForm.imageAssertionModelId })
+    }
+    // 更新步骤数据融合场景
+    if (scenarioForm.stepFusionModelId) {
+      await updateModelScenario('step_fusion', { modelId: scenarioForm.stepFusionModelId })
+    }
+    ElMessage.success('配置成功')
+    scenarioDialogVisible.value = false
+  } catch (error) {
+    console.error('保存场景配置失败:', error)
+    ElMessage.error('保存配置失败')
+  } finally {
+    scenarioLoading.value = false
+  }
+}
 
 /**
  * 加载模型列表数据

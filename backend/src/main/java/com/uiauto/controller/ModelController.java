@@ -2,13 +2,22 @@ package com.uiauto.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.uiauto.entity.Model;
+import com.uiauto.entity.ModelScenario;
 import com.uiauto.model.Result;
 import com.uiauto.service.ModelService;
+import com.uiauto.service.ModelScenarioService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 模型配置管理控制器
@@ -23,6 +32,12 @@ public class ModelController {
 
     @Autowired
     private ModelService modelService;
+
+    @Autowired
+    private ModelScenarioService modelScenarioService;
+
+    private final RestTemplate restTemplate = new RestTemplate();
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
      * 分页查询模型配置列表
@@ -126,5 +141,105 @@ public class ModelController {
         } else {
             return Result.error("删除失败");
         }
+    }
+
+    /**
+     * 测试模型连接
+     *
+     * @param model 模型信息
+     * @return 测试结果
+     */
+    @PostMapping("/test")
+    public Result<String> testConnection(@RequestBody Model model) {
+        try {
+            // 构建测试请求（简单的聊天消息）
+            String url = model.getModelUrl();
+            String apiKey = model.getApiKey();
+            
+            if (url == null || url.isEmpty()) {
+                return Result.error("模型地址不能为空");
+            }
+            
+            // 构造请求体
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", model.getModelName());
+            
+            // 添加消息
+            Map<String, String> message = new HashMap<>();
+            message.put("role", "user");
+            message.put("content", "Hi");
+            requestBody.put("messages", Arrays.asList(message));
+            requestBody.put("max_tokens", 10);
+            
+            // 设置请求头
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+            headers.set("Authorization", "Bearer " + apiKey);
+            
+            org.springframework.http.HttpEntity<Map<String, Object>> entity = 
+                new org.springframework.http.HttpEntity<>(requestBody, headers);
+            
+            // 发送请求
+            org.springframework.http.ResponseEntity<String> response = 
+                restTemplate.postForEntity(url, entity, String.class);
+            
+            if (response.getStatusCode().is2xxSuccessful()) {
+                return Result.success("连接成功");
+            } else {
+                return Result.error("连接失败: " + response.getStatusCode());
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("连接失败: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 获取所有模型使用场景
+     *
+     * @return 场景列表
+     */
+    @GetMapping("/scenarios")
+    public Result<List<ModelScenario>> getScenarios() {
+        List<ModelScenario> scenarios = modelScenarioService.getAllScenarios();
+        return Result.success(scenarios);
+    }
+
+    /**
+     * 更新场景关联的模型
+     *
+     * @param scenarioCode 场景编码
+     * @param scenario     场景信息（包含modelId）
+     * @return 操作结果
+     */
+    @PutMapping("/scenarios/{scenarioCode}")
+    public Result<String> updateScenarioModel(
+            @PathVariable String scenarioCode,
+            @RequestBody ModelScenario scenario) {
+        boolean success = modelScenarioService.updateScenarioModel(scenarioCode, scenario.getModelId());
+        if (success) {
+            return Result.success("更新成功");
+        } else {
+            return Result.error("更新失败");
+        }
+    }
+
+    /**
+     * 根据场景编码获取关联的模型配置
+     *
+     * @param scenarioCode 场景编码
+     * @return 模型配置
+     */
+    @GetMapping("/scenarios/{scenarioCode}/model")
+    public Result<Model> getModelByScenarioCode(@PathVariable String scenarioCode) {
+        ModelScenario scenario = modelScenarioService.getByScenarioCode(scenarioCode);
+        if (scenario == null || scenario.getModelId() == null) {
+            return Result.error("场景未配置模型");
+        }
+        Model model = modelService.getById(scenario.getModelId());
+        if (model == null) {
+            return Result.error("模型不存在");
+        }
+        return Result.success(model);
     }
 }
