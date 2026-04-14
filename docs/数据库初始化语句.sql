@@ -6,7 +6,11 @@
 -- 1. 添加AI token消耗字段、测试任务表、测试任务与用例关联表、测试任务执行历史表、测试任务执行步骤详情表
 -- 2. 添加sys_system表（应用系统管理）
 -- 3. 修改sys_user表的avatar列为LONGTEXT
--- 4. 修改菜单：系统管理→平台管理，新增系统管理子菜单
+-- 4. 修改菜单：系统管理→平台管理，新增部门管理和系统管理子菜单
+-- 5. 添加sys_model表（模型配置管理）
+-- 6. 为test_case表添加system_id列（关联系统）
+-- 7. 为test_case_step表添加test_data列（测试数据）
+-- 8. 新增模型配置菜单
 -- =====================================================
 
 -- 创建数据库
@@ -152,7 +156,8 @@ INSERT INTO `sys_menu` VALUES
 (6, 5, '用户管理', '/system/user', 'User', 1, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
 (7, 5, '角色管理', '/system/role', 'Peoples', 2, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
 (8, 5, '部门管理', '/system/department', 'OfficeBuilding', 3, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
-(9, 5, '系统管理', '/system/system', 'Monitor', 4, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00');
+(9, 5, '系统管理', '/system/system', 'Monitor', 4, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00'),
+(10, 5, '模型配置', '/system/model', 'Setting', 5, 1, '2024-01-01 00:00:00', '2024-01-01 00:00:00');
 
 -- =====================================================
 -- 测试用例表
@@ -164,6 +169,7 @@ CREATE TABLE `test_case` (
   `name` varchar(200) NOT NULL COMMENT '用例名称',
   `description` text COMMENT '用例描述',
   `designer` varchar(50) DEFAULT NULL COMMENT '设计者',
+  `system_id` bigint(20) DEFAULT NULL COMMENT '关联系统ID',
   `case_type` varchar(20) DEFAULT 'positive' COMMENT '用例性质:positive-正例,negative-反例',
   `status` int(4) DEFAULT 1 COMMENT '状态:0-禁用,1-启用',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
@@ -187,6 +193,7 @@ CREATE TABLE `test_case_step` (
   `locator_type` varchar(20) DEFAULT NULL COMMENT '定位器类型：xpath/css/id/等',
   `locator_value` text DEFAULT NULL COMMENT '定位器值',
   `input_data` text DEFAULT NULL COMMENT '输入数据',
+  `test_data` text COMMENT '测试数据',
   `expected_result` text DEFAULT NULL COMMENT '预期结果',
   `actual_result` text DEFAULT NULL COMMENT '实际结果',
   `status` varchar(20) DEFAULT 'pending' COMMENT '状态：pending/running/success/failed',
@@ -389,6 +396,22 @@ CREATE TABLE `sys_system` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_system_no` (`system_no`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='应用系统表';
+
+-- =====================================================
+-- 模型配置表
+-- =====================================================
+DROP TABLE IF EXISTS `sys_model`;
+CREATE TABLE `sys_model` (
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT '模型ID',
+  `model_name` varchar(200) NOT NULL COMMENT '模型名称',
+  `model_url` varchar(500) DEFAULT NULL COMMENT '模型地址',
+  `api_key` varchar(500) DEFAULT NULL COMMENT 'API Key',
+  `model_family` varchar(100) DEFAULT NULL COMMENT '模型家族',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：0-禁用，1-正常',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='模型配置表';
 
 -- =====================================================
 -- 执行结果提示

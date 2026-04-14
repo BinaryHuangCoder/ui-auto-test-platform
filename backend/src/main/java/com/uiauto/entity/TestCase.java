@@ -50,6 +50,17 @@ public class TestCase {
     private String designerNickname;
     
     /**
+     * 关联系统ID
+     */
+    private Long systemId;
+    
+    /**
+     * 关联系统名称（非数据库字段，用于前端显示）
+     */
+    @TableField(exist = false)
+    private String systemName;
+    
+    /**
      * 用例性质：positive-正例，negative-反例
      */
     private String caseType;

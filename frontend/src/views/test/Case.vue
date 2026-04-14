@@ -54,6 +54,11 @@
             {{ scope.row.designerNickname || scope.row.designer || '-' }}
           </template>
         </el-table-column>
+        <el-table-column prop="systemName" label="系统名称" width="120" show-overflow-tooltip>
+          <template #default="scope">
+            {{ scope.row.systemName || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="caseType" label="用例性质" width="90">
           <template #default="scope">
             <el-tag :type="scope.row.caseType === 'positive' ? 'success' : 'warning'" size="small">

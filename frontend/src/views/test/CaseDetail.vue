@@ -33,6 +33,15 @@
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="12" :md="12" :lg="12">
+            <el-form-item label="关联系统" prop="systemId">
+              <el-select v-model="form.systemId" placeholder="请选择系统" style="width: 100%" clearable>
+                <el-option v-for="system in systemList" :key="system.id" :label="system.systemName" :value="system.id" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="20">
+          <el-col :xs="24" :sm="12" :md="12" :lg="12">
             <el-form-item label="用例性质" prop="caseType">
               <el-select v-model="form.caseType" placeholder="请选择用例性质" style="width: 100%">
                 <el-option label="正例" value="positive" />
@@ -118,6 +127,7 @@
         <el-table-column prop="stepNo" label="步骤号" width="80" />
         <el-table-column prop="stepDescription" label="步骤描述" min-width="180" show-overflow-tooltip />
         <el-table-column prop="assertionDescription" label="断言描述" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="testData" label="测试数据" min-width="120" show-overflow-tooltip />
         <el-table-column prop="status" label="启用" width="70">
           <template #default="scope">
             <el-switch
@@ -171,6 +181,9 @@
         <el-form-item label="断言描述" prop="assertionDescription">
           <el-input v-model="stepForm.assertionDescription" type="textarea" :rows="2" placeholder="请输入断言描述（可选）" />
         </el-form-item>
+        <el-form-item label="测试数据" prop="testData">
+          <el-input v-model="stepForm.testData" type="textarea" :rows="2" placeholder="请输入测试数据（可选）" />
+        </el-form-item>
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="是否启用">
@@ -199,6 +212,7 @@ import { ElMessage } from 'element-plus'
 import { getCaseDetail, addCase, updateCase } from '@/api/testCase'
 import { getStepList, addStep as apiAddStep, updateStep, deleteStep as apiDeleteStep, batchDeleteStep as apiBatchDeleteStep, exportSteps, importSteps } from '@/api/testCaseStep'
 import { listAllUsers } from '@/api/user'
+import { listAllSystems } from '@/api/system'
 import Pagination from '@/components/Pagination.vue'
 
 const route = useRoute()
@@ -217,9 +231,12 @@ const form = reactive({
   name: '',
   description: '',
   designer: '',
+  systemId: null,
   caseType: 'positive',
   status: 1
 })
+
+const systemList = ref([])
 
 const stepList = ref([])
 const stepPagination = ref({ pageNum: 1, pageSize: 10 })
@@ -235,6 +252,7 @@ const stepForm = reactive({
   caseId: null,
   stepDescription: '',
   assertionDescription: '',
+  testData: '',
   status: 1,
   screenshot: 1
 })
@@ -268,6 +286,16 @@ onMounted(async () => {
     }
   } catch (error) {
     console.error('加载用户列表失败', error)
+  }
+  
+  // 加载系统列表（用于系统下拉框）
+  try {
+    const systemRes = await listAllSystems()
+    if (systemRes.code === 200) {
+      systemList.value = systemRes.data || []
+    }
+  } catch (error) {
+    console.error('加载系统列表失败', error)
   }
   
   if (caseId.value) {
@@ -338,7 +366,7 @@ const addStep = () => {
 }
 
 const editStep = (row) => {
-  Object.assign(stepForm, { id: row.id, caseId: row.caseId, stepDescription: row.stepDescription, assertionDescription: row.assertionDescription, status: row.status, screenshot: row.screenshot })
+  Object.assign(stepForm, { id: row.id, caseId: row.caseId, stepDescription: row.stepDescription, assertionDescription: row.assertionDescription, testData: row.testData, status: row.status, screenshot: row.screenshot })
   stepDialogVisible.value = true
 }
 

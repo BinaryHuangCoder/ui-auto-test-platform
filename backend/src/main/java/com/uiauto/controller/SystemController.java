@@ -132,6 +132,20 @@ public class SystemController {
      * @param id 系统ID
      * @return 操作结果
      */
+    /**
+     * 获取所有应用系统列表（用于下拉框）
+     *
+     * @return 所有应用系统列表
+     */
+    @GetMapping("/all")
+    public Result<java.util.List<System>> listAll() {
+        LambdaQueryWrapper<System> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(System::getStatus, 1);
+        wrapper.orderByAsc(System::getSystemNo);
+        java.util.List<System> list = systemService.list(wrapper);
+        return Result.success(list);
+    }
+
     @DeleteMapping("/{id}")
     public Result<String> delete(@PathVariable Long id) {
         if (id == null) {

@@ -42,3 +42,11 @@ export function deleteSystem(id) {
     method: 'delete'
   })
 }
+
+// 获取所有应用系统（用于下拉框）
+export function listAllSystems() {
+  return request({
+    url: '/system/all',
+    method: 'get'
+  })
+}

@@ -40,6 +40,9 @@ public class TestCaseStep {
     /** 输入数据 */
     private String inputData;
     
+    /** 测试数据 */
+    private String testData;
+    
     /** 预期结果 */
     private String expectedResult;
     

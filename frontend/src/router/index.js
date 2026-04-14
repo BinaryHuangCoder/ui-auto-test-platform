@@ -71,6 +71,12 @@ const routes = [
         name: 'SystemManagement',
         component: () => import('@/views/system/System.vue'),
         meta: { title: '系统管理', icon: 'Setting' }
+      },
+      {
+        path: 'system/model',
+        name: 'ModelManagement',
+        component: () => import('@/views/system/Model.vue'),
+        meta: { title: '模型配置', icon: 'Setting' }
       }
     ]
   }

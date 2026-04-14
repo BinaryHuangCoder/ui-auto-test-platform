@@ -3,9 +3,11 @@ package com.uiauto.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.uiauto.entity.TestCase;
+import com.uiauto.entity.System;
 import com.uiauto.model.Result;
 import com.uiauto.service.TestCaseService;
 import com.uiauto.service.UserService;
+import com.uiauto.service.SystemService;
 import com.uiauto.entity.User;
 import com.uiauto.util.ExcelUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,6 +32,9 @@ public class TestCaseController {
     
     @Autowired
     private UserService userService;
+    
+    @Autowired
+    private SystemService systemService;
     
     @Autowired
     private ExcelUtil excelUtil;
@@ -64,9 +69,10 @@ public class TestCaseController {
         wrapper.orderByDesc(TestCase::getCreateTime);
         Page<TestCase> result = testCaseService.page(page, wrapper);
         
-        // 为每条用例填充设计者昵称
+        // 为每条用例填充设计者昵称和系统名称
         if (result.getRecords() != null && !result.getRecords().isEmpty()) {
             for (TestCase testCase : result.getRecords()) {
+                // 填充设计者昵称
                 if (testCase.getDesigner() != null && !testCase.getDesigner().isEmpty()) {
                     User user = userService.getOne(
                         new LambdaQueryWrapper<User>()
@@ -76,6 +82,13 @@ public class TestCaseController {
                         testCase.setDesignerNickname(user.getNickname());
                     } else {
                         testCase.setDesignerNickname(testCase.getDesigner());
+                    }
+                }
+                // 填充系统名称
+                if (testCase.getSystemId() != null) {
+                    System system = systemService.getById(testCase.getSystemId());
+                    if (system != null) {
+                        testCase.setSystemName(system.getSystemName());
                     }
                 }
             }
@@ -96,6 +109,15 @@ public class TestCaseController {
     @GetMapping("/{id}")
     public Result<TestCase> getById(@PathVariable Long id) {
         TestCase testCase = testCaseService.getById(id);
+        if (testCase != null) {
+            // 填充系统名称
+            if (testCase.getSystemId() != null) {
+                System system = systemService.getById(testCase.getSystemId());
+                if (system != null) {
+                    testCase.setSystemName(system.getSystemName());
+                }
+            }
+        }
         return testCase != null ? Result.success(testCase) : Result.error("用例不存在");
     }
     
