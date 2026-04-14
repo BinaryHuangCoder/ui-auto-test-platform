@@ -235,6 +235,66 @@ public class UserController {
     }
     
     /**
+     * 更新用户个人信息
+     * @param user 用户信息
+     * @return Result<String> 操作结果
+     */
+    @PutMapping("/profile")
+    public Result<String> updateProfile(@RequestBody User user, HttpServletRequest request) {
+        // 从请求头获取token
+        String token = request.getHeader("Authorization");
+        if (token == null || token.isEmpty()) {
+            return Result.error(401, "未登录或 token 无效");
+        }
+        
+        try {
+            if (token.startsWith("Bearer ")) {
+                token = token.substring(7);
+            }
+            
+            Long userId = jwtUtil.getUserIdFromToken(token);
+            if (userId == null) {
+                return Result.error(401, "token 无效");
+            }
+            
+            User existUser = userService.getById(userId);
+            if (existUser == null) {
+                return Result.error(401, "用户不存在");
+            }
+            
+            // 更新个人信息字段
+            if (user.getNickname() != null) {
+                existUser.setNickname(user.getNickname());
+            }
+            if (user.getAvatar() != null) {
+                existUser.setAvatar(user.getAvatar());
+            }
+            if (user.getGender() != null) {
+                existUser.setGender(user.getGender());
+            }
+            if (user.getDepartment() != null) {
+                existUser.setDepartment(user.getDepartment());
+            }
+            if (user.getPhone() != null) {
+                existUser.setPhone(user.getPhone());
+            }
+            if (user.getEmployeeNo() != null) {
+                existUser.setEmployeeNo(user.getEmployeeNo());
+            }
+            existUser.setUpdateTime(LocalDateTime.now());
+            
+            boolean success = userService.updateById(existUser);
+            if (success) {
+                return Result.success("保存成功");
+            } else {
+                return Result.error("保存失败");
+            }
+        } catch (Exception e) {
+            return Result.error(401, "token 验证失败");
+        }
+    }
+    
+    /**
      * 修改密码（带强度验证）
      * @param params 包含username、oldPassword、newPassword的请求参数
      * @return Result<String> 操作结果
