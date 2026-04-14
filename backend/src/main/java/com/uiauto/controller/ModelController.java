@@ -166,6 +166,15 @@ public class ModelController {
                 return Result.error("模型名称不能为空");
             }
             
+            // 确保URL以 /v1/chat/completions 结尾
+            String testUrl = url;
+            if (!testUrl.endsWith("/chat/completions")) {
+                if (!testUrl.endsWith("/")) {
+                    testUrl += "/";
+                }
+                testUrl += "v1/chat/completions";
+            }
+            
             // 构造OpenAI兼容的请求体
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", modelName);
@@ -188,7 +197,7 @@ public class ModelController {
             
             // 发送请求
             org.springframework.http.ResponseEntity<String> response = 
-                restTemplate.postForEntity(url, entity, String.class);
+                restTemplate.postForEntity(testUrl, entity, String.class);
             
             if (response.getStatusCode().is2xxSuccessful()) {
                 return Result.success("连接成功");
@@ -197,10 +206,16 @@ public class ModelController {
             }
         } catch (org.springframework.web.client.ResourceAccessException e) {
             e.printStackTrace();
-            return Result.error("连接失败: 无法访问模型地址，请检查网络和地址是否正确");
+            return Result.error("连接失败: 无法访问模型地址，请检查网络和地址是否正确（当前使用URL: " + model.getModelUrl() + ")");
         } catch (org.springframework.web.client.HttpClientErrorException e) {
             e.printStackTrace();
-            return Result.error("连接失败: HTTP " + e.getStatusCode().value() + " - " + e.getResponseBodyAsString());
+            String errorMsg = "连接失败: HTTP " + e.getStatusCode().value();
+            if (e.getStatusCode().value() == 401) {
+                errorMsg += " - API Key无效，请检查您的API Key是否正确";
+            } else {
+                errorMsg += " - " + e.getResponseBodyAsString();
+            }
+            return Result.error(errorMsg);
         } catch (Exception e) {
             e.printStackTrace();
             return Result.error("连接失败: " + e.getMessage());
