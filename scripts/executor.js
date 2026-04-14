@@ -133,14 +133,14 @@ async function getModelConfigFromBackend(scenarioCode) {
  */
 async function fuseStepData(model, stepDescription, testData) {
   return new Promise((resolve, reject) => {
-    // 确保URL以 /v1/chat/completions 结尾
+    // 确保URL以 /chat/completions 结尾
     let url = model.modelUrl;
     console.error('[DEBUG] 原始模型URL:', url);
     if (!url.endsWith('/chat/completions')) {
       if (!url.endsWith('/')) {
         url += '/';
       }
-      url += 'v1/chat/completions';
+      url += 'chat/completions';
     }
     console.error('[DEBUG] 最终请求URL:', url);
 
