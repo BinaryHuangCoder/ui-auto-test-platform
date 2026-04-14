@@ -1,0 +1,1 @@
+ALTER TABLE `sys_user` MODIFY COLUMN `avatar` LONGTEXT COMMENT '用户头像';
