@@ -229,7 +229,6 @@ const pageTitle = computed(() => {
     '/dashboard': '首页',
     '/test/case': '测试用例',
     '/test/case-detail': '用例详情',
-    '/test/execution': '执行记录',
     '/test/task': '测试任务',
     '/test/report': '测试报告',
     '/system/user': '用户管理',

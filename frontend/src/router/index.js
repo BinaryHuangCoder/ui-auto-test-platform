@@ -31,12 +31,6 @@ const routes = [
         meta: { title: '用例详情', icon: 'Document' }
       },
       {
-        path: 'test/execution',
-        name: 'Execution',
-        component: () => import('@/views/test/Execution.vue'),
-        meta: { title: '执行记录', icon: 'VideoPlay' }
-      },
-      {
         path: 'test/task',
         name: 'TestTask',
         component: () => import('@/views/test/Task.vue'),
