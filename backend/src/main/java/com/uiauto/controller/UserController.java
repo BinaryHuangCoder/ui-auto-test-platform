@@ -105,6 +105,8 @@ public class UserController {
         if (user.getStatus() != null) {
             existUser.setStatus(user.getStatus());
         }
+        existUser.setDepartment(user.getDepartment());
+        existUser.setEmployeeNo(user.getEmployeeNo());
         existUser.setUpdateTime(LocalDateTime.now());
         
         boolean success = userService.updateById(existUser);

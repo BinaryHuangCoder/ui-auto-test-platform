@@ -97,7 +97,9 @@
           </el-radio-group>
         </el-form-item>
         <el-form-item label="部门">
-          <el-input v-model="profileForm.department" placeholder="请输入部门" />
+          <el-select v-model="profileForm.department" placeholder="请选择部门（非必填）" clearable style="width: 100%;">
+            <el-option v-for="dept in departmentList" :key="dept.id" :label="dept.name" :value="dept.name" />
+          </el-select>
         </el-form-item>
         <el-form-item label="手机号" prop="phone">
           <el-input v-model="profileForm.phone" placeholder="请输入手机号" />
@@ -172,6 +174,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import Cropper from 'cropperjs'
 import { resetPassword, changePassword, getUserInfo, updateUserProfile } from '@/api/user'
+import { getDepartmentList } from '@/api/department'
 
 const route = useRoute()
 const router = useRouter()
@@ -201,6 +204,7 @@ const cropperVisible = ref(false)
 const cropperSrc = ref('')
 const cropperImageRef = ref(null)
 let cropperInstance = null
+const departmentList = ref([])
 
 // 表单验证规则
 const validatePhone = (rule, value, callback) => {
@@ -239,7 +243,33 @@ const pageTitle = computed(() => {
 
 onMounted(() => {
   loadUserInfo()
+  loadDepartments()
 })
+
+/**
+ * 加载部门列表并扁平化
+ */
+const loadDepartments = async () => {
+  try {
+    const res = await getDepartmentList()
+    if (res.code === 200 && res.data) {
+      // 扁平化树形部门数据
+      const flatten = (list) => {
+        let result = []
+        for (const item of list) {
+          result.push(item)
+          if (item.children && item.children.length > 0) {
+            result = result.concat(flatten(item.children))
+          }
+        }
+        return result
+      }
+      departmentList.value = flatten(res.data)
+    }
+  } catch (error) {
+    console.error('加载部门列表失败:', error)
+  }
+}
 
 const loadUserInfo = async () => {
   try {

@@ -25,7 +25,6 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="sort" label="排序" width="80" />
         <el-table-column prop="createTime" label="创建时间" width="170">
           <template #default="scope">
             {{ formatDateTime(scope.row.createTime) }}

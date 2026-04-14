@@ -53,6 +53,14 @@
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="formData.email" placeholder="请输入邮箱" />
         </el-form-item>
+        <el-form-item label="部门">
+          <el-select v-model="formData.department" placeholder="请选择部门（非必填）" clearable style="width: 100%;">
+            <el-option v-for="dept in departmentList" :key="dept.id" :label="dept.name" :value="dept.name" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="工号">
+          <el-input v-model="formData.employeeNo" placeholder="请输入员工工号（非必填）" />
+        </el-form-item>
         <el-form-item v-if="!isEdit" label="密码" prop="password">
           <el-input v-model="formData.password" type="password" show-password placeholder="请输入密码" />
         </el-form-item>
@@ -72,6 +80,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { listUsers, addUser, updateUser, deleteUser } from '@/api/user'
+import { getDepartmentList } from '@/api/department'
 
 // 表格数据
 const tableData = ref([])
@@ -81,6 +90,8 @@ const pageSize = ref(15)  // 默认15条分页
 const total = ref(0)
 // 加载状态
 const loading = ref(false)
+// 部门列表
+const departmentList = ref([])
 
 // 对话框状态
 const dialogVisible = ref(false)
@@ -96,7 +107,9 @@ const formData = reactive({
   nickname: '',
   email: '',
   password: '',
-  status: 1
+  status: 1,
+  department: '',
+  employeeNo: ''
 })
 
 // 表单校验规则
@@ -121,9 +134,35 @@ const formRules = {
 /**
  * 页面加载时初始化数据
  */
-onMounted(() => {
+onMounted(async () => {
   loadData()
+  await loadDepartments()
 })
+
+/**
+ * 加载部门列表并扁平化
+ */
+const loadDepartments = async () => {
+  try {
+    const res = await getDepartmentList()
+    if (res.code === 200 && res.data) {
+      // 扁平化树形部门数据
+      const flatten = (list) => {
+        let result = []
+        for (const item of list) {
+          result.push(item)
+          if (item.children && item.children.length > 0) {
+            result = result.concat(flatten(item.children))
+          }
+        }
+        return result
+      }
+      departmentList.value = flatten(res.data)
+    }
+  } catch (error) {
+    console.error('加载部门列表失败:', error)
+  }
+}
 
 /**
  * 加载用户列表数据
@@ -170,6 +209,8 @@ const handleAdd = () => {
   formData.email = ''
   formData.password = ''
   formData.status = 1
+  formData.department = ''
+  formData.employeeNo = ''
   dialogVisible.value = true
 }
 
@@ -188,6 +229,8 @@ const handleEdit = (row) => {
   formData.email = row.email
   formData.password = ''
   formData.status = row.status
+  formData.department = row.department || ''
+  formData.employeeNo = row.employeeNo || ''
   dialogVisible.value = true
 }
 
@@ -242,7 +285,9 @@ const submitForm = async () => {
           id: formData.id,
           nickname: formData.nickname,
           email: formData.email,
-          status: formData.status
+          status: formData.status,
+          department: formData.department,
+          employeeNo: formData.employeeNo
         })
       } else {
         // 添加用户
@@ -251,7 +296,9 @@ const submitForm = async () => {
           nickname: formData.nickname,
           email: formData.email,
           password: formData.password,
-          status: formData.status
+          status: formData.status,
+          department: formData.department,
+          employeeNo: formData.employeeNo
         })
       }
       
