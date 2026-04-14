@@ -87,10 +87,10 @@ public class StatisticsController {
         );
         stats.put("runningTaskCount", runningTaskCount);
 
-        // 最近任务（取最近4条执行记录）
+        // 最近任务（取最近4条执行记录，按id倒序）
         List<TestTaskExecution> recentTaskExecutions = testTaskExecutionService.list(
             new LambdaQueryWrapper<TestTaskExecution>()
-                .orderByDesc(TestTaskExecution::getExecuteTime)
+                .orderByDesc(TestTaskExecution::getId)
                 .last("LIMIT 4")
         );
 
@@ -113,7 +113,8 @@ public class StatisticsController {
             }
             task.put("status", status);
             task.put("statusType", statusType);
-            task.put("time", execution.getExecuteTime() != null ? execution.getExecuteTime().format(formatter) : "");
+            task.put("time", execution.getExecuteTime() != null ? execution.getExecuteTime().format(formatter) : 
+                    (execution.getStartTime() != null ? execution.getStartTime().format(formatter) : ""));
             recentTasks.add(task);
         }
         stats.put("recentTasks", recentTasks);

@@ -250,6 +250,7 @@ public class TestTaskController {
         taskExecution.setTaskId(taskId);
         taskExecution.setTaskName(task.getTaskName());
         taskExecution.setExecutor("admin");
+        taskExecution.setExecuteTime(LocalDateTime.now());
         taskExecution.setStartTime(LocalDateTime.now());
         taskExecution.setStatus("running");
         testTaskExecutionService.save(taskExecution);

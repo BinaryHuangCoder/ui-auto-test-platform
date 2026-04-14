@@ -89,10 +89,10 @@ public class TestTaskServiceImpl extends ServiceImpl<TestTaskMapper, TestTask> i
                 .collect(Collectors.toList());
 
             if (!taskIds.isEmpty()) {
-                // 为每个任务获取最新的执行记录
+                // 为每个任务获取最新的执行记录（按id倒序，因为id是自增的）
                 LambdaQueryWrapper<TestTaskExecution> executionWrapper = new LambdaQueryWrapper<>();
                 executionWrapper.in(TestTaskExecution::getTaskId, taskIds);
-                executionWrapper.orderByDesc(TestTaskExecution::getExecuteTime);
+                executionWrapper.orderByDesc(TestTaskExecution::getId);
                 List<TestTaskExecution> executions = testTaskExecutionService.list(executionWrapper);
 
                 // 按 taskId 分组，取每个 taskId 的第一条（最新的）
