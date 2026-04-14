@@ -155,7 +155,7 @@
         <el-table-column prop="aiTotalTokenUsed" width="150">
           <template #header>
             <span>AI token消耗
-              <el-tooltip content="估算规则：中文每2字符≈1 token，英文每4字符≈1 token" placement="top">
+              <el-tooltip content="数据来自Midscene AI调用的真实token消耗统计" placement="top">
                 <el-icon style="margin-left: 4px; cursor: pointer; color: var(--el-color-info);"><QuestionFilled /></el-icon>
               </el-tooltip>
             </span>
@@ -218,7 +218,7 @@
         <el-table-column prop="aiTokenUsed" width="150">
           <template #header>
             <span>AI token消耗
-              <el-tooltip content="估算规则：中文每2字符≈1 token，英文每4字符≈1 token" placement="top">
+              <el-tooltip content="数据来自Midscene AI调用的真实token消耗统计" placement="top">
                 <el-icon style="margin-left: 4px; cursor: pointer; color: var(--el-color-info);"><QuestionFilled /></el-icon>
               </el-tooltip>
             </span>
