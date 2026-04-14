@@ -135,12 +135,14 @@ async function fuseStepData(model, stepDescription, testData) {
   return new Promise((resolve, reject) => {
     // 确保URL以 /v1/chat/completions 结尾
     let url = model.modelUrl;
+    console.error('[DEBUG] 原始模型URL:', url);
     if (!url.endsWith('/chat/completions')) {
       if (!url.endsWith('/')) {
         url += '/';
       }
       url += 'v1/chat/completions';
     }
+    console.error('[DEBUG] 最终请求URL:', url);
 
     const requestBody = JSON.stringify({
       model: model.modelName,
@@ -186,16 +188,20 @@ async function fuseStepData(model, stepDescription, testData) {
     // 使用 http 或 https 模块根据协议
     const client = urlObj.protocol === 'https:' ? https : http;
     const req = client.request(options, (res) => {
+      console.error('[DEBUG] 模型响应状态码:', res.statusCode);
+      console.error('[DEBUG] 模型响应头:', res.headers);
       let data = '';
       res.on('data', (chunk) => {
         data += chunk;
+        console.error('[DEBUG] 收到数据块:', chunk.toString());
       });
       res.on('end', () => {
+        console.error('[DEBUG] 完整响应数据:', data);
         try {
           const result = JSON.parse(data);
           if (result.choices && result.choices.length > 0 && result.choices[0].message) {
             const fusedStep = result.choices[0].message.content.trim();
-            console.error('[INFO] 步骤数据融合完成:', fusedStep);
+            console.error('[INFO] 步骤数据融合完成，融合后的步骤:', fusedStep);
             resolve(fusedStep);
           } else {
             console.error('[ERROR] 模型响应格式不正确:', data);
