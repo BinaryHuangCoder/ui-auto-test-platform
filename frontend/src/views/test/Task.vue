@@ -316,7 +316,7 @@
         <el-table-column prop="caseName" label="用例名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="executor" label="执行人" width="100">
           <template #default="scope">
-            {{ scope.row.executor || '-' }}
+            {{ scope.row.executorNickname || scope.row.executor || '-' }}
           </template>
         </el-table-column>
         <el-table-column prop="startTime" label="开始时间" width="170">
@@ -417,8 +417,15 @@
     </el-dialog>
     
     <!-- 截图预览对话框 -->
-    <el-dialog v-model="screenshotVisible" title="执行截图" width="800px">
-      <img v-if="currentScreenshot" :src="currentScreenshot" style="width: 100%;" />
+    <el-dialog v-model="screenshotVisible" title="执行截图" width="80%">
+      <el-image
+        v-if="currentScreenshot"
+        :src="currentScreenshot"
+        style="width: 100%;"
+        :preview-src-list="[currentScreenshot]"
+        :initial-index="0"
+        fit="contain"
+      />
     </el-dialog>
   </div>
 </template>
@@ -497,7 +504,7 @@ const executionVisible = ref(false)
 const executionList = ref([])
 const execTotal = ref(0)
 const execPageNum = ref(1)
-const execPageSize = ref(10)
+const execPageSize = ref(5)
 const activeTaskExecutionRow = ref(null)
 const taskCaseExecutionList = ref([])
 const activeCaseExecutionRow = ref(null)

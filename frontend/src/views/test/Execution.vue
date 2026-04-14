@@ -177,7 +177,7 @@
         <el-table-column prop="aiTokenUsed" width="150">
           <template #header>
             <span>AI token消耗
-              <el-tooltip content="估算规则：中文每2字符≈1 token，英文每4字符≈1 token" placement="top">
+              <el-tooltip content="数据来自Midscene AI调用的真实token消耗统计" placement="top">
                 <el-icon style="margin-left: 4px; cursor: pointer; color: var(--el-color-info);"><QuestionFilled /></el-icon>
               </el-tooltip>
             </span>
@@ -196,8 +196,15 @@
     </el-dialog>
     
     <!-- 截图预览对话框 -->
-    <el-dialog v-model="screenshotVisible" title="执行截图" width="800px">
-      <img v-if="currentScreenshot" :src="currentScreenshot" style="width: 100%;" />
+    <el-dialog v-model="screenshotVisible" title="执行截图" width="80%">
+      <el-image
+        v-if="currentScreenshot"
+        :src="currentScreenshot"
+        style="width: 100%;"
+        :preview-src-list="[currentScreenshot]"
+        :initial-index="0"
+        fit="contain"
+      />
     </el-dialog>
   </div>
 </template>
@@ -210,7 +217,7 @@ import { getExecutionList, getStepExecutions } from '@/api/testCaseExecution'
 
 const tableData = ref([])
 const pageNum = ref(1)
-const pageSize = ref(10)
+const pageSize = ref(5)
 const total = ref(0)
 const detailVisible = ref(false)
 const screenshotVisible = ref(false)

@@ -258,22 +258,25 @@ public class TestTaskController {
         // 异步执行所有关联用例
         CompletableFuture.runAsync(() -> {
             TestTaskExecution finalTaskExecution = taskExecution;
+            // 用于累加所有用例的AI总token消耗
+            long totalTaskAiTokenUsed = 0;
             try {
                 // 异步执行所有用例，复用TestCaseExecutionController的完整逻辑
-                List<CompletableFuture<Void>> futures = new ArrayList<>();
+                List<CompletableFuture<Long>> futures = new ArrayList<>();
                 for (Long caseId : caseIds) {
                     final Long finalTaskExecutionId = finalTaskExecution.getId();
-                    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
+                    CompletableFuture<Long> future = CompletableFuture.supplyAsync(() -> {
+                        long caseAiTokenUsed = 0;
                         try {
                             TestCase testCase = testCaseService.getById(caseId);
-                            if (testCase == null) return;
+                            if (testCase == null) return 0L;
 
                             List<TestCaseStep> steps = testCaseStepService.list(
                                 new LambdaQueryWrapper<TestCaseStep>()
                                     .eq(TestCaseStep::getCaseId, caseId)
                                     .orderByAsc(TestCaseStep::getStepNo)
                             );
-                            if (steps.isEmpty()) return;
+                            if (steps.isEmpty()) return 0L;
 
                             // 创建执行记录
                             TestCaseExecution execution = new TestCaseExecution();
@@ -331,6 +334,7 @@ public class TestTaskController {
                                 long[] result = parseAndUpdateResults(batchResult, execution.getId(), steps);
                                 boolean allSuccess = (result[0] == 1);
                                 totalAiTokenUsed = result[1];
+                                caseAiTokenUsed = totalAiTokenUsed;
                                 
                                 // 更新执行记录状态
                                 long end = System.currentTimeMillis();
@@ -362,18 +366,23 @@ public class TestTaskController {
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
+                        return caseAiTokenUsed;
                     });
                     futures.add(future);
                 }
 
-                // 等待所有用例执行完成
-                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
+                // 等待所有用例执行完成，并累加所有用例的AI token消耗
+                List<Long> caseAiTokenUsedList = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                        .thenApply(v -> futures.stream().map(CompletableFuture::join).collect(java.util.stream.Collectors.toList()))
+                        .join();
+                totalTaskAiTokenUsed = caseAiTokenUsedList.stream().mapToLong(Long::longValue).sum();
 
                 // 更新任务执行记录为成功
                 finalTaskExecution.setEndTime(LocalDateTime.now());
                 finalTaskExecution.setDuration(java.time.Duration.between(
                     finalTaskExecution.getStartTime(), finalTaskExecution.getEndTime()).toMillis());
                 finalTaskExecution.setStatus("success");
+                finalTaskExecution.setAiTotalTokenUsed(totalTaskAiTokenUsed);
                 testTaskExecutionService.updateById(finalTaskExecution);
 
             } catch (Exception e) {
@@ -383,6 +392,7 @@ public class TestTaskController {
                 finalTaskExecution.setDuration(java.time.Duration.between(
                     finalTaskExecution.getStartTime(), finalTaskExecution.getEndTime()).toMillis());
                 finalTaskExecution.setStatus("failed");
+                finalTaskExecution.setAiTotalTokenUsed(totalTaskAiTokenUsed);
                 testTaskExecutionService.updateById(finalTaskExecution);
             }
         });
