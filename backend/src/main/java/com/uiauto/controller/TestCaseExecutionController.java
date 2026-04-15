@@ -157,7 +157,7 @@ public class TestCaseExecutionController {
                 
                 // 如果执行失败，更新所有未完成的步骤状态为失败
                 if (!allSuccess) {
-                    updatePendingStepsToFailed(execution.getId());
+                    updatePendingStepsToFailed(execution.getId(), "执行失败");
                 }
                 
                 System.err.println("[INFO] 用例执行完成，总耗时：" + (end - start) + "ms, 状态：" + execution.getStatus());
@@ -172,8 +172,8 @@ public class TestCaseExecutionController {
                 execution.setDescription(execution.getDescription() + " [执行失败：" + e.getMessage() + "]");
                 executionService.updateById(execution);
                 
-                // 更新所有未完成的步骤状态为失败
-                updatePendingStepsToFailed(execution.getId());
+                // 更新所有未完成的步骤状态为失败，并设置失败原因
+                updatePendingStepsToFailed(execution.getId(), "执行失败：" + e.getMessage());
             }
         });
         
@@ -467,8 +467,9 @@ public class TestCaseExecutionController {
      * 将所有pending状态的步骤更新为failed状态
      * 
      * @param executionId 执行记录ID
+     * @param errorMessage 失败原因描述
      */
-    private void updatePendingStepsToFailed(Long executionId) {
+    private void updatePendingStepsToFailed(Long executionId, String errorMessage) {
         List<TestStepExecution> pendingSteps = stepExecutionService.list(
             new LambdaQueryWrapper<TestStepExecution>()
                 .eq(TestStepExecution::getExecutionId, executionId)
@@ -477,8 +478,8 @@ public class TestCaseExecutionController {
         
         for (TestStepExecution step : pendingSteps) {
             step.setStatus("failed");
-            step.setAiResult("- 执行异常，未完成");
-            step.setErrorMessage("执行异常，未完成");
+            step.setAiResult("- " + errorMessage);
+            step.setErrorMessage(errorMessage);
             stepExecutionService.updateById(step);
         }
     }
