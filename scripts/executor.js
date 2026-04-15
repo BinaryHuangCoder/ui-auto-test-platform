@@ -90,9 +90,13 @@ async function getModelConfigFromBackend(scenarioCode) {
               process.env.MIDSCENE_MODEL_FAMILY = 'doubao-seed';
             } else if (model.modelName && model.modelName.toLowerCase().includes('doubao')) {
               process.env.MIDSCENE_MODEL_FAMILY = 'doubao-seed';
+            } else if (model.modelFamily && model.modelFamily.toLowerCase().includes('qwen')) {
+              process.env.MIDSCENE_MODEL_FAMILY = 'qwen3.5';
+            } else if (model.modelName && model.modelName.toLowerCase().includes('qwen')) {
+              process.env.MIDSCENE_MODEL_FAMILY = 'qwen3.5';
             } else {
-              // 其他模型默认使用 gpt-4
-              process.env.MIDSCENE_MODEL_FAMILY = 'gpt-4';
+              // 其他模型默认使用 gpt-5（Midscene支持的有效值）
+              process.env.MIDSCENE_MODEL_FAMILY = 'gpt-5';
             }
             // 兼容变量
             process.env.OPENAI_API_KEY = model.apiKey;
