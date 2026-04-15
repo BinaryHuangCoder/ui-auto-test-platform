@@ -73,6 +73,11 @@ public class TestStepExecution {
     private String screenshot;
     
     /**
+     * 执行失败描述（失败原因）
+     */
+    private String errorMessage;
+    
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;

@@ -107,6 +107,7 @@ public class TestCaseExecutionController {
             stepExecution.setStatus("pending");
             stepExecution.setAssertionStatus("none");
             stepExecution.setAiResult("- 等待执行");
+            stepExecution.setErrorMessage("无");
             stepExecution.setCreateTime(LocalDateTime.now());
             stepExecutionService.save(stepExecution);
         }
@@ -342,11 +343,13 @@ public class TestCaseExecutionController {
                             executionTime = extractJsonValue(stepJson, "executionTime");
                         }
                         
-                        // 设置状态
+                        // 设置状态和失败描述
                         if ("成功".equals(executionStatus)) {
                             stepExecution.setStatus("success");
+                            stepExecution.setErrorMessage("无");
                         } else {
                             stepExecution.setStatus("failed");
+                            stepExecution.setErrorMessage(message != null ? message : "执行失败");
                             allSuccess = false;
                         }
                         
@@ -475,6 +478,7 @@ public class TestCaseExecutionController {
         for (TestStepExecution step : pendingSteps) {
             step.setStatus("failed");
             step.setAiResult("- 执行异常，未完成");
+            step.setErrorMessage("执行异常，未完成");
             stepExecutionService.updateById(step);
         }
     }
