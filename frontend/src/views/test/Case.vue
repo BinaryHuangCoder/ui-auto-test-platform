@@ -212,6 +212,14 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="errorMessage" label="执行失败描述" min-width="180" show-overflow-tooltip>
+          <template #default="scope">
+            <span v-if="scope.row.errorMessage && scope.row.errorMessage !== '无'" style="color: var(--el-color-danger);">
+              {{ scope.row.errorMessage }}
+            </span>
+            <span v-else class="text-muted">无</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="aiResult" label="AI断言描述" min-width="180" show-overflow-tooltip>
           <template #default="scope">
             <span v-if="scope.row.aiResult" :class="{'assertion-success': scope.row.aiResult.includes('✅'), 'assertion-failed': scope.row.aiResult.includes('❌'), 'assertion-warning': scope.row.aiResult.includes('⚠️')}">
