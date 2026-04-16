@@ -4,22 +4,55 @@
       <template #header>
         <div class="card-header">
           <span>用户管理</span>
-          <el-button type="primary" icon="Plus" @click="handleAdd">添加用户</el-button>
+          <div style="display: flex; gap: 10px;">
+            <ColumnSettings
+              v-model:columns="userTableColumns"
+              storage-key="user-table-columns"
+            />
+            <el-button type="primary" icon="Plus" @click="handleAdd">添加用户</el-button>
+          </div>
         </div>
       </template>
       <el-table :data="tableData" style="width: 100%" v-loading="loading">
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="username" label="用户名" />
-        <el-table-column prop="nickname" label="昵称" />
-        <el-table-column prop="email" label="邮箱" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column 
+          v-if="userTableColumns.find(c => c.prop === 'id')?.visible"
+          prop="id" 
+          label="ID" 
+          width="80" 
+        />
+        <el-table-column 
+          v-if="userTableColumns.find(c => c.prop === 'username')?.visible"
+          prop="username" 
+          label="用户名" 
+        />
+        <el-table-column 
+          v-if="userTableColumns.find(c => c.prop === 'nickname')?.visible"
+          prop="nickname" 
+          label="昵称" 
+        />
+        <el-table-column 
+          v-if="userTableColumns.find(c => c.prop === 'email')?.visible"
+          prop="email" 
+          label="邮箱" 
+        />
+        <el-table-column 
+          v-if="userTableColumns.find(c => c.prop === 'status')?.visible"
+          prop="status" 
+          label="状态" 
+          width="100"
+        >
           <template #default="scope">
             <el-tag :type="scope.row.status === 1 ? 'success' : 'danger'">
               {{ scope.row.status === 1 ? '正常' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="170" />
+        <el-table-column 
+          v-if="userTableColumns.find(c => c.prop === 'createTime')?.visible"
+          prop="createTime" 
+          label="创建时间" 
+          width="170" 
+        />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="scope">
             <el-button size="small" icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
@@ -79,6 +112,8 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Edit, Delete } from '@element-plus/icons-vue'
+import ColumnSettings from '@/components/ColumnSettings.vue'
 import { listUsers, addUser, updateUser, deleteUser } from '@/api/user'
 import { getDepartmentList } from '@/api/department'
 
@@ -92,6 +127,16 @@ const total = ref(0)
 const loading = ref(false)
 // 部门列表
 const departmentList = ref([])
+
+// 用户列表列配置
+const userTableColumns = ref([
+  { prop: 'id', label: 'ID', visible: true },
+  { prop: 'username', label: '用户名', visible: true },
+  { prop: 'nickname', label: '昵称', visible: true },
+  { prop: 'email', label: '邮箱', visible: true },
+  { prop: 'status', label: '状态', visible: true },
+  { prop: 'createTime', label: '创建时间', visible: true }
+])
 
 // 对话框状态
 const dialogVisible = ref(false)

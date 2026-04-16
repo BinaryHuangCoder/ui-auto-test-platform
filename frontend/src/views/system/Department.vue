@@ -4,7 +4,13 @@
       <template #header>
         <div class="card-header">
           <span>部门管理</span>
-          <el-button type="primary" icon="Plus" @click="handleAdd()">添加部门</el-button>
+          <div style="display: flex; gap: 10px;">
+            <ColumnSettings
+              v-model:columns="departmentTableColumns"
+              storage-key="department-table-columns"
+            />
+            <el-button type="primary" icon="Plus" @click="handleAdd()">添加部门</el-button>
+          </div>
         </div>
       </template>
       
@@ -16,16 +22,36 @@
         v-loading="loading"
         default-expand-all
       >
-        <el-table-column prop="name" label="部门名称" min-width="180" />
-        <el-table-column prop="leader" label="部门负责人" width="120" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column 
+          v-if="departmentTableColumns.find(c => c.prop === 'name')?.visible"
+          prop="name" 
+          label="部门名称" 
+          min-width="180" 
+        />
+        <el-table-column 
+          v-if="departmentTableColumns.find(c => c.prop === 'leader')?.visible"
+          prop="leader" 
+          label="部门负责人" 
+          width="120" 
+        />
+        <el-table-column 
+          v-if="departmentTableColumns.find(c => c.prop === 'status')?.visible"
+          prop="status" 
+          label="状态" 
+          width="100"
+        >
           <template #default="scope">
             <el-tag :type="scope.row.status === 1 ? 'success' : 'danger'">
               {{ scope.row.status === 1 ? '正常' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="170">
+        <el-table-column 
+          v-if="departmentTableColumns.find(c => c.prop === 'createTime')?.visible"
+          prop="createTime" 
+          label="创建时间" 
+          width="170"
+        >
           <template #default="scope">
             {{ formatDateTime(scope.row.createTime) }}
           </template>
@@ -99,6 +125,8 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Plus, Edit, Delete } from '@element-plus/icons-vue'
+import ColumnSettings from '@/components/ColumnSettings.vue'
 import { getDepartmentList, addDepartment, updateDepartment, deleteDepartment } from '@/api/department'
 
 // 表格数据
@@ -109,6 +137,14 @@ const pageSize = ref(15)  // 默认15条分页
 const total = ref(0)
 // 加载状态
 const loading = ref(false)
+
+// 部门列表列配置
+const departmentTableColumns = ref([
+  { prop: 'name', label: '部门名称', visible: true },
+  { prop: 'leader', label: '部门负责人', visible: true },
+  { prop: 'status', label: '状态', visible: true },
+  { prop: 'createTime', label: '创建时间', visible: true }
+])
 
 // 部门选项（用于级联选择器）
 const departmentOptions = ref([])

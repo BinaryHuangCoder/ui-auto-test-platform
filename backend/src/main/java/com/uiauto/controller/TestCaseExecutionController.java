@@ -108,6 +108,9 @@ public class TestCaseExecutionController {
         execution.setExecutor("admin");
         execution.setStartTime(LocalDateTime.now());
         execution.setStatus("running");
+        execution.setTotalCount(steps.size()); // 设置总步骤数
+        execution.setPassedCount(0); // 初始化成功步骤数
+        execution.setFailedCount(0); // 初始化失败步骤数
         // 获取图像断言检查和步骤数据融合使用的模型
         try {
             // 获取图像断言检查场景的模型
@@ -241,6 +244,8 @@ public class TestCaseExecutionController {
                 long[] result = parseAndUpdateResults(batchResult, execution.getId(), steps);
                 boolean allSuccess = (result[0] == 1);
                 totalAiTokenUsed = result[1];
+                int passedCount = (int) result[2];
+                int failedCount = (int) result[3];
                 
                 // 更新执行记录状态
                 long end = System.currentTimeMillis();
@@ -248,6 +253,8 @@ public class TestCaseExecutionController {
                 execution.setEndTime(LocalDateTime.now());
                 execution.setStatus(allSuccess ? "success" : "failed");
                 execution.setAiTotalTokenUsed(totalAiTokenUsed);
+                execution.setPassedCount(passedCount);
+                execution.setFailedCount(failedCount);
                 executionService.updateById(execution);
                 
                 // 如果执行失败，更新所有未完成的步骤状态为失败
@@ -495,12 +502,52 @@ public class TestCaseExecutionController {
             stepExecutionService.updateById(stepExecution);
             System.err.println("[INFO] 步骤 " + stepNo + " 执行完成：" + executionStatus + ", 耗时：" + stepExecution.getDuration() + "ms, 开始时间：" + stepExecution.getStartTime() + ", AI token消耗：" + stepAiTokenUsed);
             
+            // 实时更新执行记录的进度（passedCount 和 failedCount）
+            updateExecutionProgress(executionId);
+            
         } catch (Exception e) {
             System.err.println("[ERROR] 解析单个步骤结果失败：" + e.getMessage());
             e.printStackTrace();
         }
         
         return stepAiTokenUsed;
+    }
+    
+    /**
+     * 实时更新执行记录的进度（passedCount 和 failedCount）
+     * 
+     * @param executionId 执行记录ID
+     */
+    private void updateExecutionProgress(Long executionId) {
+        try {
+            // 查询该执行记录下所有步骤的执行状态
+            List<TestStepExecution> allSteps = stepExecutionService.list(
+                new LambdaQueryWrapper<TestStepExecution>()
+                    .eq(TestStepExecution::getExecutionId, executionId)
+            );
+            
+            int passedCount = 0;
+            int failedCount = 0;
+            
+            for (TestStepExecution step : allSteps) {
+                if ("success".equals(step.getStatus())) {
+                    passedCount++;
+                } else if ("failed".equals(step.getStatus())) {
+                    failedCount++;
+                }
+            }
+            
+            // 更新执行记录
+            TestCaseExecution execution = executionService.getById(executionId);
+            if (execution != null) {
+                execution.setPassedCount(passedCount);
+                execution.setFailedCount(failedCount);
+                executionService.updateById(execution);
+                System.err.println("[INFO] 实时更新执行进度: passed=" + passedCount + ", failed=" + failedCount + ", total=" + execution.getTotalCount());
+            }
+        } catch (Exception e) {
+            System.err.println("[WARN] 更新执行进度失败: " + e.getMessage());
+        }
     }
     
     /**
@@ -514,6 +561,8 @@ public class TestCaseExecutionController {
     private long[] parseAndUpdateResults(String batchResult, Long executionId, List<TestCaseStep> steps) {
         boolean allSuccess = true;
         long totalAiTokenUsed = 0;
+        int passedCount = 0;
+        int failedCount = 0;
         
         try {
             // 添加调试日志
@@ -670,10 +719,12 @@ public class TestCaseExecutionController {
                         if ("成功".equals(executionStatus)) {
                             stepExecution.setStatus("success");
                             stepExecution.setErrorMessage("无");
+                            passedCount++;
                         } else {
                             stepExecution.setStatus("failed");
                             stepExecution.setErrorMessage(message != null ? message : "执行失败");
                             allSuccess = false;
+                            failedCount++;
                         }
                         
                         // 设置断言状态
@@ -855,8 +906,8 @@ public class TestCaseExecutionController {
             allSuccess = false;
         }
         
-        // 返回结果：index 0表示是否成功，index 1表示总AI token消耗
-        return new long[]{allSuccess ? 1 : 0, totalAiTokenUsed};
+        // 返回结果：index 0表示是否成功，index 1表示总AI token消耗，index 2表示成功步骤数，index 3表示失败步骤数
+        return new long[]{allSuccess ? 1 : 0, totalAiTokenUsed, passedCount, failedCount};
     }
     
     /**

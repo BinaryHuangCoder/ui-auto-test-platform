@@ -8,10 +8,15 @@
             <el-button type="danger" icon="Delete" :disabled="!selectedIds.length" @click="batchDelete">批量删除</el-button>
           </div>
           <div class="toolbar-right">
+            <ColumnSettings
+              v-model:columns="systemTableColumns"
+              storage-key="system-table-columns"
+            />
             <el-input 
               v-model="keyword" 
               placeholder="搜索系统编号/名称/简称" 
               style="width: 280px;"
+              size="default"
               @keyup.enter="loadData"
               clearable
               @clear="loadData"
@@ -31,22 +36,52 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="systemNo" label="系统编号" min-width="140" />
-        <el-table-column prop="systemName" label="系统名称" min-width="180" />
-        <el-table-column prop="systemShortName" label="系统简称" min-width="120" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column 
+          v-if="systemTableColumns.find(c => c.prop === 'systemNo')?.visible"
+          prop="systemNo" 
+          label="系统编号" 
+          min-width="140" 
+        />
+        <el-table-column 
+          v-if="systemTableColumns.find(c => c.prop === 'systemName')?.visible"
+          prop="systemName" 
+          label="系统名称" 
+          min-width="180" 
+        />
+        <el-table-column 
+          v-if="systemTableColumns.find(c => c.prop === 'systemShortName')?.visible"
+          prop="systemShortName" 
+          label="系统简称" 
+          min-width="120" 
+        />
+        <el-table-column 
+          v-if="systemTableColumns.find(c => c.prop === 'status')?.visible"
+          prop="status" 
+          label="状态" 
+          width="100"
+        >
           <template #default="scope">
             <el-tag :type="scope.row.status === 1 ? 'success' : 'danger'">
               {{ scope.row.status === 1 ? '正常' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="source" label="系统来源" width="120">
+        <el-table-column 
+          v-if="systemTableColumns.find(c => c.prop === 'source')?.visible"
+          prop="source" 
+          label="系统来源" 
+          width="120"
+        >
           <template #default="scope">
             {{ scope.row.source === 'manual' ? '手工新增' : '外部同步' }}
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="170" />
+        <el-table-column 
+          v-if="systemTableColumns.find(c => c.prop === 'createTime')?.visible"
+          prop="createTime" 
+          label="创建时间" 
+          width="170" 
+        />
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="scope">
             <el-button size="small" icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
@@ -100,8 +135,9 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { Search } from '@element-plus/icons-vue'
+import { Search, Plus, Delete, Edit } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import ColumnSettings from '@/components/ColumnSettings.vue'
 import { getSystemList, addSystem, updateSystem, deleteSystem } from '@/api/system'
 
 // 表格数据
@@ -116,6 +152,16 @@ const loading = ref(false)
 const keyword = ref('')
 // 选中的ID列表
 const selectedIds = ref([])
+
+// 系统列表列配置
+const systemTableColumns = ref([
+  { prop: 'systemNo', label: '系统编号', visible: true },
+  { prop: 'systemName', label: '系统名称', visible: true },
+  { prop: 'systemShortName', label: '系统简称', visible: true },
+  { prop: 'status', label: '状态', visible: true },
+  { prop: 'source', label: '系统来源', visible: true },
+  { prop: 'createTime', label: '创建时间', visible: true }
+])
 
 // 对话框状态
 const dialogVisible = ref(false)

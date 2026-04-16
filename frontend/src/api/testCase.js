@@ -52,3 +52,10 @@ export function batchDeleteCase(ids) {
     data: ids
   })
 }
+
+export function clearCaseCache(caseId) {
+  return request({
+    url: `/case/${caseId}/cache`,
+    method: 'delete'
+  })
+}

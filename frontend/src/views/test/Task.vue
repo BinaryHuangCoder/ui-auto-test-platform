@@ -14,10 +14,15 @@
           <el-button type="danger" icon="Delete" :disabled="!selectedIds.length" @click="batchDelete">批量删除</el-button>
         </div>
         <div class="toolbar-right">
+          <ColumnSettings
+            v-model:columns="taskTableColumns"
+            storage-key="task-table-columns"
+          />
           <el-input 
             v-model="keyword" 
             placeholder="搜索任务编号/名称/创建人" 
             style="width: 280px;"
+            size="default"
             @keyup.enter="search"
             clearable
             @clear="search"
@@ -36,24 +41,57 @@
         :header-cell-style="{ background: '#f5f7fa' }"
       >
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="taskNo" label="任务编号" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="taskName" label="任务名称" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="creator" label="创建人" width="100">
+        <el-table-column 
+          v-if="taskTableColumns.find(c => c.prop === 'taskNo')?.visible"
+          prop="taskNo" 
+          label="任务编号" 
+          min-width="160" 
+          show-overflow-tooltip 
+        />
+        <el-table-column 
+          v-if="taskTableColumns.find(c => c.prop === 'taskName')?.visible"
+          prop="taskName" 
+          label="任务名称" 
+          min-width="180" 
+          show-overflow-tooltip 
+        />
+        <el-table-column 
+          v-if="taskTableColumns.find(c => c.prop === 'creator')?.visible"
+          prop="creator" 
+          label="创建人" 
+          width="100"
+        >
           <template #default="scope">
             {{ scope.row.creatorNickname || scope.row.creator || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="170">
+        <el-table-column 
+          v-if="taskTableColumns.find(c => c.prop === 'createTime')?.visible"
+          prop="createTime" 
+          label="创建时间" 
+          width="170"
+        >
           <template #default="scope">
             {{ formatDateTime(scope.row.createTime) }}
           </template>
         </el-table-column>
-        <el-table-column prop="latestExecuteTime" label="最新执行时间" width="170">
+        <el-table-column 
+          v-if="taskTableColumns.find(c => c.prop === 'latestExecuteTime')?.visible"
+          prop="latestExecuteTime" 
+          label="最新执行时间" 
+          width="170"
+        >
           <template #default="scope">
             {{ formatDateTime(scope.row.latestExecuteTime) }}
           </template>
         </el-table-column>
-        <el-table-column prop="cronExpression" label="定时策略" min-width="150" show-overflow-tooltip>
+        <el-table-column 
+          v-if="taskTableColumns.find(c => c.prop === 'cronExpression')?.visible"
+          prop="cronExpression" 
+          label="定时策略" 
+          min-width="150" 
+          show-overflow-tooltip
+        >
           <template #default="scope">
             <el-tag v-if="scope.row.cronExpression" type="info" size="small">
               {{ scope.row.cronExpression }}
@@ -61,7 +99,12 @@
             <span v-else style="color: #909399">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="80">
+        <el-table-column 
+          v-if="taskTableColumns.find(c => c.prop === 'status')?.visible"
+          prop="status" 
+          label="状态" 
+          width="80"
+        >
           <template #default="scope">
             <el-switch
               v-model="scope.row.status"
@@ -457,6 +500,7 @@
 import { ref, reactive, onMounted, nextTick, watch, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Edit, Delete, Document, List, QuestionFilled, VideoPlay, Loading } from '@element-plus/icons-vue'
+import ColumnSettings from '@/components/ColumnSettings.vue'
 import request from '@/api/request'
 import { getExecutionList, getStepExecutions } from '@/api/testCaseExecution'
 
@@ -467,6 +511,17 @@ const pageNum = ref(1)
 const pageSize = ref(5)
 const keyword = ref('')
 const selectedIds = ref([])
+
+// 任务列表列配置
+const taskTableColumns = ref([
+  { prop: 'taskNo', label: '任务编号', visible: true },
+  { prop: 'taskName', label: '任务名称', visible: true },
+  { prop: 'creator', label: '创建人', visible: true },
+  { prop: 'createTime', label: '创建时间', visible: true },
+  { prop: 'latestExecuteTime', label: '最新执行时间', visible: true },
+  { prop: 'cronExpression', label: '定时策略', visible: true },
+  { prop: 'status', label: '状态', visible: true }
+])
 
 // 对话框
 const dialogVisible = ref(false)

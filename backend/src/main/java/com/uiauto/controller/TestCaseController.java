@@ -212,4 +212,48 @@ public class TestCaseController {
             return Result.error("导入失败: " + e.getMessage());
         }
     }
+    
+    /**
+     * 清空指定测试用例的缓存文件
+     * 
+     * @param caseId 测试用例ID
+     * @return 操作结果
+     */
+    @DeleteMapping("/{caseId}/cache")
+    public Result<String> clearCache(@PathVariable Long caseId) {
+        try {
+            // 缓存文件路径格式：test-case-{caseId}.cache.yaml
+            String cacheFileName = "test-case-" + caseId + ".cache.yaml";
+            
+            // 检查几个可能的缓存文件位置
+            String[] possiblePaths = {
+                "/home/administrator/.openclaw/workspace/ui-auto-test-platform/scripts/midscene_run/cache/" + cacheFileName,
+                "/opt/ui-auto-test-platform/scripts/midscene_run/cache/" + cacheFileName,
+                "./scripts/midscene_run/cache/" + cacheFileName
+            };
+            
+            boolean deleted = false;
+            for (String cachePath : possiblePaths) {
+                java.io.File cacheFile = new java.io.File(cachePath);
+                if (cacheFile.exists()) {
+                    if (cacheFile.delete()) {
+                        java.lang.System.err.println("[INFO] 成功删除缓存文件: " + cachePath);
+                        deleted = true;
+                    } else {
+                        java.lang.System.err.println("[WARN] 删除缓存文件失败: " + cachePath);
+                    }
+                }
+            }
+            
+            if (deleted) {
+                return Result.success("缓存文件已清空");
+            } else {
+                return Result.success("未找到缓存文件，无需清空");
+            }
+        } catch (Exception e) {
+            java.lang.System.err.println("[ERROR] 清空缓存失败: " + e.getMessage());
+            e.printStackTrace();
+            return Result.error("清空缓存失败: " + e.getMessage());
+        }
+    }
 }

@@ -9,10 +9,15 @@
             <el-button type="warning" icon="Setting" @click="openScenarioConfig">模型配置</el-button>
           </div>
           <div class="toolbar-right">
+            <ColumnSettings
+              v-model:columns="modelTableColumns"
+              storage-key="model-table-columns"
+            />
             <el-input 
               v-model="keyword" 
               placeholder="搜索模型名称/模型家族" 
               style="width: 280px;"
+              size="default"
               @keyup.enter="loadData"
               clearable
               @clear="loadData"
@@ -32,22 +37,54 @@
         @selection-change="handleSelectionChange"
       >
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="modelName" label="模型名称" min-width="180" />
-        <el-table-column prop="modelUrl" label="模型地址" min-width="250" show-overflow-tooltip />
-        <el-table-column prop="apiKey" label="API Key" min-width="200" show-overflow-tooltip>
+        <el-table-column 
+          v-if="modelTableColumns.find(c => c.prop === 'modelName')?.visible"
+          prop="modelName" 
+          label="模型名称" 
+          min-width="180" 
+        />
+        <el-table-column 
+          v-if="modelTableColumns.find(c => c.prop === 'modelUrl')?.visible"
+          prop="modelUrl" 
+          label="模型地址" 
+          min-width="250" 
+          show-overflow-tooltip 
+        />
+        <el-table-column 
+          v-if="modelTableColumns.find(c => c.prop === 'apiKey')?.visible"
+          prop="apiKey" 
+          label="API Key" 
+          min-width="200" 
+          show-overflow-tooltip
+        >
           <template #default="scope">
             {{ scope.row.apiKey ? '***' + scope.row.apiKey.slice(-4) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="modelFamily" label="模型家族" min-width="120" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column 
+          v-if="modelTableColumns.find(c => c.prop === 'modelFamily')?.visible"
+          prop="modelFamily" 
+          label="模型家族" 
+          min-width="120" 
+        />
+        <el-table-column 
+          v-if="modelTableColumns.find(c => c.prop === 'status')?.visible"
+          prop="status" 
+          label="状态" 
+          width="100"
+        >
           <template #default="scope">
             <el-tag :type="scope.row.status === 1 ? 'success' : 'danger'">
               {{ scope.row.status === 1 ? '正常' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="170" />
+        <el-table-column 
+          v-if="modelTableColumns.find(c => c.prop === 'createTime')?.visible"
+          prop="createTime" 
+          label="创建时间" 
+          width="170" 
+        />
         <el-table-column label="操作" width="320" fixed="right">
           <template #default="scope">
             <el-button size="small" icon="Connection" @click="handleTestConnection(scope.row)">测试连接</el-button>
@@ -119,8 +156,9 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { Search, Connection, Setting } from '@element-plus/icons-vue'
+import { Search, Connection, Setting, Plus, Delete, Edit } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import ColumnSettings from '@/components/ColumnSettings.vue'
 import { getModelList, addModel, updateModel, deleteModel, testModelConnection, getModelScenarios, updateModelScenario } from '@/api/model'
 
 // 表格数据
@@ -135,6 +173,16 @@ const loading = ref(false)
 const keyword = ref('')
 // 选中的ID列表
 const selectedIds = ref([])
+
+// 模型列表列配置
+const modelTableColumns = ref([
+  { prop: 'modelName', label: '模型名称', visible: true },
+  { prop: 'modelUrl', label: '模型地址', visible: true },
+  { prop: 'apiKey', label: 'API Key', visible: true },
+  { prop: 'modelFamily', label: '模型家族', visible: true },
+  { prop: 'status', label: '状态', visible: true },
+  { prop: 'createTime', label: '创建时间', visible: true }
+])
 
 // 对话框状态
 const dialogVisible = ref(false)

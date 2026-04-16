@@ -15,6 +15,10 @@
           <el-button type="info" icon="Setting" @click="showConfigDialog">参数配置</el-button>
         </div>
         <div class="toolbar-right">
+          <ColumnSettings
+            v-model:columns="caseTableColumns"
+            storage-key="case-table-columns"
+          />
           <el-upload
             :action="importUrl"
             :headers="uploadHeaders"
@@ -30,6 +34,7 @@
             v-model="keyword" 
             placeholder="搜索用例名称/编号/设计者" 
             style="width: 220px;"
+            size="default"
             @keyup.enter="search"
             clearable
             @clear="search"
@@ -48,26 +53,59 @@
         :header-cell-style="{ background: '#f5f7fa' }"
       >
         <el-table-column type="selection" width="55" />
-        <el-table-column prop="caseNo" label="用例编号" min-width="140" show-overflow-tooltip />
-        <el-table-column prop="name" label="用例名称" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="designer" label="设计者" width="90">
+        <el-table-column 
+          v-if="caseTableColumns.find(c => c.prop === 'caseNo')?.visible"
+          prop="caseNo" 
+          label="用例编号" 
+          min-width="140" 
+          show-overflow-tooltip 
+        />
+        <el-table-column 
+          v-if="caseTableColumns.find(c => c.prop === 'name')?.visible"
+          prop="name" 
+          label="用例名称" 
+          min-width="150" 
+          show-overflow-tooltip 
+        />
+        <el-table-column 
+          v-if="caseTableColumns.find(c => c.prop === 'designer')?.visible"
+          prop="designer" 
+          label="设计者" 
+          width="90"
+        >
           <template #default="scope">
             {{ scope.row.designerNickname || scope.row.designer || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="systemName" label="系统名称" width="120" show-overflow-tooltip>
+        <el-table-column 
+          v-if="caseTableColumns.find(c => c.prop === 'systemName')?.visible"
+          prop="systemName" 
+          label="系统名称" 
+          width="120" 
+          show-overflow-tooltip
+        >
           <template #default="scope">
             {{ scope.row.systemName || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="caseType" label="用例性质" width="90">
+        <el-table-column 
+          v-if="caseTableColumns.find(c => c.prop === 'caseType')?.visible"
+          prop="caseType" 
+          label="用例性质" 
+          width="90"
+        >
           <template #default="scope">
             <el-tag :type="scope.row.caseType === 'positive' ? 'success' : 'warning'" size="small">
               {{ scope.row.caseType === 'positive' ? '正例' : '反例' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="70">
+        <el-table-column 
+          v-if="caseTableColumns.find(c => c.prop === 'status')?.visible"
+          prop="status" 
+          label="状态" 
+          width="70"
+        >
           <template #default="scope">
             <el-switch
               v-model="scope.row.status"
@@ -96,6 +134,9 @@
                   </el-dropdown-item>
                   <el-dropdown-item command="delete">
                     <el-icon><Delete /></el-icon> 删除
+                  </el-dropdown-item>
+                  <el-dropdown-item command="clearCache" divided>
+                    <el-icon><DeleteFilled /></el-icon> 清空缓存
                   </el-dropdown-item>
                 </el-dropdown-menu>
               </template>
@@ -156,6 +197,15 @@
             <el-tag :type="getStatusType(scope.row.status)" size="small">
               {{ getStatusText(scope.row.status) }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="测试进度" width="150">
+          <template #default="scope">
+            <el-progress
+              :percentage="getProgressPercentage(scope.row)"
+              :color="getProgressColor(scope.row)"
+              :stroke-width="8"
+            />
           </template>
         </el-table-column>
         <el-table-column prop="imageAssertionModel" label="图像断言模型" min-width="150" show-overflow-tooltip>
@@ -271,17 +321,17 @@
             {{ scope.row.aiTokenUsed || 0 }}
           </template>
         </el-table-column>
-        <el-table-column prop="stepFusionTokenUsed" label="数据融合token消耗" width="140">
+        <el-table-column prop="stepFusionTokenUsed" label="数据融合token消耗" width="170">
           <template #default="scope">
             {{ scope.row.stepFusionTokenUsed || 0 }}
           </template>
         </el-table-column>
-        <el-table-column prop="pageOperationTokenUsed" label="页面操作token消耗" width="140">
+        <el-table-column prop="pageOperationTokenUsed" label="页面操作token消耗" width="170">
           <template #default="scope">
             {{ scope.row.pageOperationTokenUsed || 0 }}
           </template>
         </el-table-column>
-        <el-table-column prop="assertionTokenUsed" label="AI断言token消耗" width="130">
+        <el-table-column prop="assertionTokenUsed" label="AI断言token消耗" width="170">
           <template #default="scope">
             {{ scope.row.assertionTokenUsed || 0 }}
           </template>
@@ -351,7 +401,8 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Loading, QuestionFilled, Setting } from '@element-plus/icons-vue'
-import { getCaseList, deleteCase, batchDeleteCase, updateCase } from '@/api/testCase'
+import ColumnSettings from '@/components/ColumnSettings.vue'
+import { getCaseList, deleteCase, batchDeleteCase, updateCase, clearCaseCache } from '@/api/testCase'
 import { runCase as apiRunCase, runBatchCase, getExecutionList, getStepExecutions } from '@/api/testCaseExecution'
 
 const router = useRouter()
@@ -363,6 +414,16 @@ const pageNum = ref(1)
 const pageSize = ref(10)
 const total = ref(0)
 const selectedIds = ref([])
+
+// 测试用例列表列配置
+const caseTableColumns = ref([
+  { prop: 'caseNo', label: '用例编号', visible: true },
+  { prop: 'name', label: '用例名称', visible: true },
+  { prop: 'designer', label: '设计者', visible: true },
+  { prop: 'systemName', label: '系统名称', visible: true },
+  { prop: 'caseType', label: '用例性质', visible: true },
+  { prop: 'status', label: '状态', visible: true }
+])
 
 const executionVisible = ref(false)
 const executionList = ref([])
@@ -554,6 +615,35 @@ const batchDelete = async () => {
   }
 }
 
+/**
+ * 清空测试用例缓存
+ */
+const handleClearCache = async (row) => {
+  try {
+    await ElMessageBox.confirm(
+      `确认要清空用例 "${row.name}" 的缓存文件吗？`,
+      '清空缓存',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    
+    const res = await clearCaseCache(row.id)
+    if (res.code === 200) {
+      ElMessage.success(res.message || '缓存已清空')
+    } else {
+      ElMessage.error(res.message || '清空缓存失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('清空缓存失败:', error)
+      ElMessage.error('清空缓存失败')
+    }
+  }
+}
+
 const handleCommand = async (cmd, row) => {
   switch (cmd) {
     case 'run':
@@ -567,6 +657,9 @@ const handleCommand = async (cmd, row) => {
       break
     case 'delete':
       await handleDelete(row)
+      break
+    case 'clearCache':
+      await handleClearCache(row)
       break
   }
 }
@@ -790,6 +883,31 @@ const getAssertionStatusText = (status) => {
   if (status === 'none') return '无'
   if (status === 'failed') return '断言失败'
   return status || '-'
+}
+
+/**
+ * 计算测试进度百分比
+ * @param row 执行记录行
+ * @returns 进度百分比
+ */
+const getProgressPercentage = (row) => {
+  if (!row.totalCount || row.totalCount === 0) return 0
+  const completedCount = (row.passedCount || 0) + (row.failedCount || 0)
+  return Math.round((completedCount / row.totalCount) * 100)
+}
+
+/**
+ * 获取测试进度条颜色
+ * @param row 执行记录行
+ * @returns 进度条颜色
+ */
+const getProgressColor = (row) => {
+  const percentage = getProgressPercentage(row)
+  if (row.status === 'success') return '#67c23a' // 绿色
+  if (row.status === 'failed') return '#f56c6c' // 红色
+  if (percentage >= 80) return '#67c23a' // 80%以上绿色
+  if (percentage >= 50) return '#e6a23c' // 50-80%橙色
+  return '#409eff' // 默认蓝色
 }
 </script>
 
