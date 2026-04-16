@@ -285,6 +285,44 @@ function extractTotalTokensFromLogs() {
  */
 async function initBrowser(cacheOpts) {
   if (browser) {
+    // 浏览器已打开，创建新页面
+    if (!page) {
+      const context = browser.contexts()[0];
+      page = await context.newPage();
+      
+      // 设置页面级初始化脚本（在DOM创建前执行）
+      await page.addInitScript(() => {
+        // 强制所有页面使用UTF-8编码
+        const meta = document.createElement('meta');
+        meta.httpEquiv = 'Content-Type';
+        meta.content = 'text/html; charset=utf-8';
+        if (document.head && document.head.firstChild) {
+          document.head.insertBefore(meta, document.head.firstChild);
+        } else if (document.head) {
+          document.head.appendChild(meta);
+        }
+      });
+      
+      // 处理浏览器弹出的对话框（alert/confirm/prompt）
+      page.on('dialog', async (dialog) => {
+        console.error('[DIALOG] 检测到对话框:', dialog.type(), '-', dialog.message());
+        try {
+          if (dialog.type() === 'confirm' || dialog.type() === 'prompt') {
+            // 确认框和输入框默认接受（点击确定）
+            await dialog.accept();
+            console.error('[DIALOG] 对话框已接受:', dialog.message());
+          } else if (dialog.type() === 'alert') {
+            // 警告框点击确定关闭
+            await dialog.accept();
+            console.error('[DIALOG] 警告框已关闭:', dialog.message());
+          }
+        } catch (e) {
+          console.error('[DIALOG] 处理对话框失败:', e.message());
+        }
+      });
+      
+      console.error('[INFO] 浏览器已打开，创建新页面');
+    }
     return;
   }
   
@@ -870,11 +908,13 @@ async function executeSteps(steps) {
   } catch (error) {
     console.error('[ERROR] 批量执行失败:', error.message);
   } finally {
-    // 关闭浏览器
+    // 关闭当前页面，但保持浏览器打开状态以便下次复用
     try {
-      if (page) await page.close();
-      if (browser) await browser.close();
-      console.error('[INFO] 浏览器已关闭');
+      if (page) {
+        await page.close();
+        page = null;
+        console.error('[INFO] 页面已关闭，浏览器保持打开以便下次复用');
+      }
     } catch (e) {}
   }
   
