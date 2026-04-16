@@ -68,6 +68,13 @@
           min-width="120" 
         />
         <el-table-column 
+          v-if="modelTableColumns.find(c => c.prop === 'modelDescription')?.visible"
+          prop="modelDescription" 
+          label="模型描述" 
+          min-width="200" 
+          show-overflow-tooltip 
+        />
+        <el-table-column 
           v-if="modelTableColumns.find(c => c.prop === 'status')?.visible"
           prop="status" 
           label="状态" 
@@ -87,7 +94,13 @@
         />
         <el-table-column label="操作" width="320" fixed="right">
           <template #default="scope">
-            <el-button size="small" icon="Connection" @click="handleTestConnection(scope.row)">测试连接</el-button>
+            <el-button 
+              size="small" 
+              icon="Connection" 
+              :loading="testingConnectionIds.has(scope.row.id)"
+              :disabled="testingConnectionIds.has(scope.row.id)"
+              @click="handleTestConnection(scope.row)"
+            >测试连接</el-button>
             <el-button size="small" icon="Edit" @click="handleEdit(scope.row)">编辑</el-button>
             <el-button size="small" type="danger" icon="Delete" @click="handleDelete(scope.row)">删除</el-button>
           </template>
@@ -121,6 +134,9 @@
         </el-form-item>
         <el-form-item label="模型家族" prop="modelFamily">
           <el-input v-model="formData.modelFamily" placeholder="请输入模型家族" />
+        </el-form-item>
+        <el-form-item label="模型描述" prop="modelDescription">
+          <el-input v-model="formData.modelDescription" type="textarea" :rows="3" placeholder="请输入模型描述" />
         </el-form-item>
         <el-form-item label="状态" prop="status">
           <el-switch v-model="formData.status" :active-value="1" :inactive-value="0" active-text="正常" inactive-text="禁用" />
@@ -180,6 +196,7 @@ const modelTableColumns = ref([
   { prop: 'modelUrl', label: '模型地址', visible: true },
   { prop: 'apiKey', label: 'API Key', visible: true },
   { prop: 'modelFamily', label: '模型家族', visible: true },
+  { prop: 'modelDescription', label: '模型描述', visible: true },
   { prop: 'status', label: '状态', visible: true },
   { prop: 'createTime', label: '创建时间', visible: true }
 ])
@@ -198,6 +215,7 @@ const formData = reactive({
   modelUrl: '',
   apiKey: '',
   modelFamily: '',
+  modelDescription: '',
   status: 1
 })
 
@@ -213,6 +231,9 @@ const scenarioDialogVisible = ref(false)
 const scenarioLoading = ref(false)
 const scenarioFormRef = ref(null)
 const allModels = ref([])
+
+// 测试连接 loading 状态
+const testingConnectionIds = ref(new Set())
 
 // 场景配置表单数据
 const scenarioForm = reactive({
@@ -252,6 +273,11 @@ const loadAllModels = async () => {
  * @param {Object} row - 模型信息
  */
 const handleTestConnection = async (row) => {
+  if (testingConnectionIds.value.has(row.id)) {
+    return
+  }
+  
+  testingConnectionIds.value.add(row.id)
   try {
     const res = await testModelConnection(row)
     if (res.code === 200) {
@@ -262,6 +288,8 @@ const handleTestConnection = async (row) => {
   } catch (error) {
     console.error('测试连接失败:', error)
     ElMessage.error('连接失败')
+  } finally {
+    testingConnectionIds.value.delete(row.id)
   }
 }
 
@@ -354,6 +382,7 @@ const handleAdd = () => {
   formData.modelUrl = ''
   formData.apiKey = ''
   formData.modelFamily = ''
+  formData.modelDescription = ''
   formData.status = 1
   dialogVisible.value = true
 }
@@ -371,6 +400,7 @@ const handleEdit = (row) => {
   formData.modelUrl = row.modelUrl
   formData.apiKey = row.apiKey
   formData.modelFamily = row.modelFamily
+  formData.modelDescription = row.modelDescription
   formData.status = row.status
   dialogVisible.value = true
 }
@@ -457,6 +487,7 @@ const submitForm = async () => {
           modelUrl: formData.modelUrl,
           apiKey: formData.apiKey,
           modelFamily: formData.modelFamily,
+          modelDescription: formData.modelDescription,
           status: formData.status
         })
       } else {
@@ -466,6 +497,7 @@ const submitForm = async () => {
           modelUrl: formData.modelUrl,
           apiKey: formData.apiKey,
           modelFamily: formData.modelFamily,
+          modelDescription: formData.modelDescription,
           status: formData.status
         })
       }

@@ -1,7 +1,7 @@
 -- =====================================================
 -- UI 自动化测试平台数据库初始化脚本
 -- 创建时间: 2026-04-01
--- 更新时间: 2026-04-14
+-- 更新时间: 2026-04-16
 -- 更新说明: 
 -- 1. 添加AI token消耗字段、测试任务表、测试任务与用例关联表、测试任务执行历史表、测试任务执行步骤详情表
 -- 2. 添加sys_system表（应用系统管理）
@@ -11,6 +11,7 @@
 -- 6. 为test_case表添加system_id列（关联系统）
 -- 7. 为test_case_step表添加test_data列（测试数据）
 -- 8. 新增模型配置菜单
+-- 9. 为sys_model表添加model_description列（模型描述）
 -- =====================================================
 
 -- 创建数据库
@@ -407,6 +408,7 @@ CREATE TABLE `sys_model` (
   `model_url` varchar(500) DEFAULT NULL COMMENT '模型地址',
   `api_key` varchar(500) DEFAULT NULL COMMENT 'API Key',
   `model_family` varchar(100) DEFAULT NULL COMMENT '模型家族',
+  `model_description` varchar(500) DEFAULT NULL COMMENT '模型描述',
   `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：0-禁用，1-正常',
   `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',

@@ -166,13 +166,19 @@ public class ModelController {
                 return Result.error("模型名称不能为空");
             }
             
-            // 确保URL以 /v1/chat/completions 结尾
+            // 确保URL以 /chat/completions 结尾
             String testUrl = url;
             if (!testUrl.endsWith("/chat/completions")) {
-                if (!testUrl.endsWith("/")) {
-                    testUrl += "/";
+                // 如果 URL 以 /v1 或 /v3 结尾，直接加 /chat/completions
+                if (testUrl.endsWith("/v1") || testUrl.endsWith("/v3")) {
+                    testUrl += "/chat/completions";
+                } else {
+                    // 否则，先检查是否需要添加 /v1
+                    if (!testUrl.endsWith("/")) {
+                        testUrl += "/";
+                    }
+                    testUrl += "v1/chat/completions";
                 }
-                testUrl += "v1/chat/completions";
             }
             
             // 构造OpenAI兼容的请求体

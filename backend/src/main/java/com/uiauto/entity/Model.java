@@ -43,6 +43,11 @@ public class Model {
     private String modelFamily;
 
     /**
+     * 模型描述
+     */
+    private String modelDescription;
+
+    /**
      * 状态：0-禁用，1-正常
      */
     private Integer status;
