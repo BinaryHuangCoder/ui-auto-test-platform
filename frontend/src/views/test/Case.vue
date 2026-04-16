@@ -12,6 +12,7 @@
           <el-button type="primary" icon="Plus" @click="goToAdd">新建用例</el-button>
           <el-button type="success" icon="VideoPlay" :disabled="!selectedIds.length" @click="batchRun">批量执行</el-button>
           <el-button type="danger" icon="Delete" :disabled="!selectedIds.length" @click="batchDelete">批量删除</el-button>
+          <el-button type="info" icon="Setting" @click="showConfigDialog">参数配置</el-button>
         </div>
         <div class="toolbar-right">
           <el-upload
@@ -157,6 +158,16 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="imageAssertionModel" label="图像断言模型" min-width="150" show-overflow-tooltip>
+          <template #default="scope">
+            {{ scope.row.imageAssertionModel || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="stepFusionModel" label="数据融合模型" min-width="150" show-overflow-tooltip>
+          <template #default="scope">
+            {{ scope.row.stepFusionModel || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="aiTotalTokenUsed" width="150">
           <template #header>
             <span>AI token消耗
@@ -188,27 +199,20 @@
       <el-table :data="stepExecutionList" style="width: 100%" :header-cell-style="{ background: '#f5f7fa' }">
         <el-table-column prop="stepNo" label="步骤号" width="70" />
         <el-table-column prop="stepDescription" label="步骤描述" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="testData" label="测试数据" min-width="120" show-overflow-tooltip>
+          <template #default="scope">
+            {{ scope.row.testData || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="startTime" label="开始时间" width="170">
           <template #default="scope">
             {{ formatDateTime(scope.row.startTime) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="duration" label="耗时" width="80">
-          <template #default="scope">
-            {{ scope.row.duration ? (scope.row.duration / 1000).toFixed(2) + 's' : '-' }}
           </template>
         </el-table-column>
         <el-table-column prop="status" label="执行状态" width="90">
           <template #default="scope">
             <el-tag :type="getStepStatusType(scope.row.status)" size="small">
               {{ getStepStatusText(scope.row.status) }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="assertionStatus" label="断言状态" width="100">
-          <template #default="scope">
-            <el-tag :type="getAssertionStatusType(scope.row.assertionStatus)" size="small">
-              {{ getAssertionStatusText(scope.row.assertionStatus) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -220,6 +224,13 @@
             <span v-else class="text-muted">无</span>
           </template>
         </el-table-column>
+        <el-table-column prop="assertionStatus" label="断言状态" width="100">
+          <template #default="scope">
+            <el-tag :type="getAssertionStatusType(scope.row.assertionStatus)" size="small">
+              {{ getAssertionStatusText(scope.row.assertionStatus) }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="aiResult" label="AI断言描述" min-width="180" show-overflow-tooltip>
           <template #default="scope">
             <span v-if="scope.row.aiResult" :class="{'assertion-success': scope.row.aiResult.includes('✅'), 'assertion-failed': scope.row.aiResult.includes('❌'), 'assertion-warning': scope.row.aiResult.includes('⚠️')}">
@@ -228,16 +239,51 @@
             <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="aiTokenUsed" width="150">
+        <el-table-column prop="duration" label="耗时" width="80">
+          <template #default="scope">
+            {{ scope.row.duration ? (scope.row.duration / 1000).toFixed(2) + 's' : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="stepFusionDuration" label="数据融合耗时" width="110">
+          <template #default="scope">
+            {{ scope.row.stepFusionDuration ? (scope.row.stepFusionDuration / 1000).toFixed(2) + 's' : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="pageOperationDuration" label="页面操作耗时" width="110">
+          <template #default="scope">
+            {{ scope.row.pageOperationDuration ? (scope.row.pageOperationDuration / 1000).toFixed(2) + 's' : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="assertionDuration" label="AI断言耗时" width="110">
+          <template #default="scope">
+            {{ scope.row.assertionDuration ? (scope.row.assertionDuration / 1000).toFixed(2) + 's' : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column width="180">
           <template #header>
             <span>AI token消耗
-              <el-tooltip content="数据来自Midscene AI调用的真实token消耗统计" placement="top">
+              <el-tooltip content="数据融合token消耗+页面操作token消耗+AI断言token消耗" placement="top">
                 <el-icon style="margin-left: 4px; cursor: pointer; color: var(--el-color-info);"><QuestionFilled /></el-icon>
               </el-tooltip>
             </span>
           </template>
           <template #default="scope">
             {{ scope.row.aiTokenUsed || 0 }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="stepFusionTokenUsed" label="数据融合token消耗" width="140">
+          <template #default="scope">
+            {{ scope.row.stepFusionTokenUsed || 0 }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="pageOperationTokenUsed" label="页面操作token消耗" width="140">
+          <template #default="scope">
+            {{ scope.row.pageOperationTokenUsed || 0 }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="assertionTokenUsed" label="AI断言token消耗" width="130">
+          <template #default="scope">
+            {{ scope.row.assertionTokenUsed || 0 }}
           </template>
         </el-table-column>
         <el-table-column label="截图" width="70">
@@ -271,6 +317,32 @@
         fit="contain"
       />
     </el-dialog>
+    
+    <!-- 参数配置对话框 -->
+    <el-dialog v-model="configDialogVisible" title="参数配置" width="500px">
+      <el-form :model="configForm" label-width="120px">
+        <el-form-item label="Token消耗">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span :style="{ color: !configForm.saveTokenMode ? 'var(--el-color-primary)' : 'var(--el-color-text-primary)' }">标准模式</span>
+            <el-switch
+              v-model="configForm.saveTokenMode"
+              active-text="节约模式"
+              inactive-text=""
+              @change="handleTokenModeChange"
+            />
+            <span :style="{ color: configForm.saveTokenMode ? 'var(--el-color-primary)' : 'var(--el-color-text-primary)' }">节约模式</span>
+          </div>
+          <div style="margin-top: 8px; font-size: 12px; color: var(--el-color-text-secondary);">
+            <p v-if="!configForm.saveTokenMode">标准模式：使用默认截图分辨率</p>
+            <p v-else>节约模式：降低截图分辨率（deviceScaleFactor=0.8），减少token消耗</p>
+          </div>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="configDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveConfig">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -278,7 +350,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Loading, QuestionFilled } from '@element-plus/icons-vue'
+import { Loading, QuestionFilled, Setting } from '@element-plus/icons-vue'
 import { getCaseList, deleteCase, batchDeleteCase, updateCase } from '@/api/testCase'
 import { runCase as apiRunCase, runBatchCase, getExecutionList, getStepExecutions } from '@/api/testCaseExecution'
 
@@ -307,6 +379,51 @@ const currentScreenshot = ref('')
 const activeExecutionRow = ref(null)
 const refreshTimer = ref(null)
 const isRefreshing = ref(false)
+
+// 参数配置相关
+const configDialogVisible = ref(false)
+const configForm = ref({
+  saveTokenMode: false // false=标准模式, true=节约模式
+})
+
+/**
+ * 显示参数配置对话框
+ */
+const showConfigDialog = () => {
+  // 从localStorage加载配置
+  const savedConfig = localStorage.getItem('testCaseConfig')
+  if (savedConfig) {
+    configForm.value = JSON.parse(savedConfig)
+  }
+  configDialogVisible.value = true
+}
+
+/**
+ * 处理token模式切换
+ */
+const handleTokenModeChange = (val) => {
+  console.log('Token模式切换为:', val ? '节约模式' : '标准模式')
+}
+
+/**
+ * 保存配置
+ */
+const saveConfig = () => {
+  localStorage.setItem('testCaseConfig', JSON.stringify(configForm.value))
+  ElMessage.success('配置保存成功')
+  configDialogVisible.value = false
+}
+
+/**
+ * 获取当前配置
+ */
+const getCurrentConfig = () => {
+  const savedConfig = localStorage.getItem('testCaseConfig')
+  if (savedConfig) {
+    return JSON.parse(savedConfig)
+  }
+  return configForm.value
+}
 
 const importUrl = computed(() => baseURL + '/api/case/import')
 const uploadHeaders = computed(() => ({
@@ -490,7 +607,8 @@ const handleImportError = () => {
 const executeCase = async (row) => {
   try {
     await ElMessageBox.confirm('确定要执行该用例吗？', '提示', { type: 'info' })
-    const res = await apiRunCase(row.id)
+    const config = getCurrentConfig()
+    const res = await apiRunCase(row.id, config.saveTokenMode)
     if (res.code === 200) {
       ElMessage.success('用例已开始执行')
       // 执行后立即打开执行记录页面并启动自动刷新
@@ -500,6 +618,22 @@ const executeCase = async (row) => {
     }
   } catch (error) {
     if (error !== 'cancel') ElMessage.error('执行失败')
+  }
+}
+
+const batchRun = async () => {
+  try {
+    await ElMessageBox.confirm('确定要批量执行选中的 ' + selectedIds.value.length + ' 个用例吗？', '提示', { type: 'info' })
+    const config = getCurrentConfig()
+    const res = await runBatchCase(selectedIds.value, config.saveTokenMode)
+    if (res.code === 200) {
+      ElMessage.success('批量执行已开始')
+      selectedIds.value = []
+    } else {
+      ElMessage.error(res.message || '批量执行失败')
+    }
+  } catch (error) {
+    if (error !== 'cancel') ElMessage.error('批量执行失败')
   }
 }
 

@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * UI 自动化测试执行器 - 参考 /root/midscene/playwright-steps-executor.js
- * 版本：v1.31.0
- * 更新日期：2026-04-14
+ * 版本：v1.33.0
+ * 更新日期：2026-04-15
  * 
  * 功能说明:
  * - 支持多步骤批量执行（保持浏览器上下文）
@@ -10,6 +10,9 @@
  * - 每个步骤执行后截图
  * - 断言为空时显示"无"
  * - 从 Midscene debug logs 获取准确的 AI token 消耗
+ * - 支持步骤数据融合缓存（fusedStepDescription）
+ * - Midscene 使用原始步骤描述+测试数据作为输入（确保缓存）
+ * - 支持图像断言模型和步骤数据融合模型分开配置
  * 
  * @author huangzhiyong081439
  * @since 2026-04-05
@@ -49,9 +52,10 @@ process.stderr.write = (chunk) => {
 /**
  * 从后端获取场景对应的模型配置
  * @param {string} scenarioCode - 场景编码
+ * @param {boolean} setMidsceneEnv - 是否设置 Midscene 环境变量（默认 false）
  * @returns {Promise<Object|null>} 模型配置
  */
-async function getModelConfigFromBackend(scenarioCode) {
+async function getModelConfigFromBackend(scenarioCode, setMidsceneEnv = false) {
   return new Promise((resolve, reject) => {
     // 从后端获取场景配置
     const getScenarioOptions = {
@@ -79,8 +83,8 @@ async function getModelConfigFromBackend(scenarioCode) {
           }
 
           const model = scenarioResult.data;
-          // 设置 Midscene 环境变量
-          if (model && model.apiKey && model.modelUrl) {
+          // 只有在 setMidsceneEnv 为 true 时才设置 Midscene 的环境变量
+          if (setMidsceneEnv && model && model.apiKey && model.modelUrl) {
             // Midscene 专用变量
             process.env.MIDSCENE_MODEL_BASE_URL = model.modelUrl;
             process.env.MIDSCENE_MODEL_API_KEY = model.apiKey;
@@ -102,16 +106,15 @@ async function getModelConfigFromBackend(scenarioCode) {
             process.env.OPENAI_API_KEY = model.apiKey;
             process.env.OPENAI_API_BASE = model.modelUrl;
             process.env.OPENAI_BASE_URL = model.modelUrl;
-            console.error('[INFO] 使用模型配置:', model.modelName);
+            console.error('[INFO] 使用模型配置（Midscene）:', model.modelName);
             console.error('[INFO] MIDSCENE_MODEL_BASE_URL:', model.modelUrl);
             console.error('[INFO] MIDSCENE_MODEL_API_KEY:', model.apiKey.substring(0, 8) + '...');
             console.error('[INFO] MIDSCENE_MODEL_NAME:', model.modelName);
             console.error('[INFO] MIDSCENE_MODEL_FAMILY:', process.env.MIDSCENE_MODEL_FAMILY);
-            resolve(model);
           } else {
-            console.error('[WARN] 场景未配置模型，使用默认配置');
-            resolve(null);
+            console.error('[INFO] 获取模型配置（不设置 Midscene 环境变量）:', model ? model.modelName : 'null');
           }
+          resolve(model);
         } catch (e) {
           console.error('[ERROR] 解析场景配置响应失败:', e.message);
           resolve(null);
@@ -133,7 +136,7 @@ async function getModelConfigFromBackend(scenarioCode) {
  * @param {Object} model - 模型配置对象
  * @param {string} stepDescription - 原始步骤描述
  * @param {string} testData - 测试数据
- * @returns {Promise<string>} 融合后的完整步骤描述
+ * @returns {Promise<Object>} 包含 fusedStep 和 tokenUsed 的对象
  */
 async function fuseStepData(model, stepDescription, testData) {
   return new Promise((resolve, reject) => {
@@ -205,8 +208,13 @@ async function fuseStepData(model, stepDescription, testData) {
           const result = JSON.parse(data);
           if (result.choices && result.choices.length > 0 && result.choices[0].message) {
             const fusedStep = result.choices[0].message.content.trim();
-            console.error('[INFO] 步骤数据融合完成，融合后的步骤:', fusedStep);
-            resolve(fusedStep);
+            // 提取 token 消耗
+            let tokenUsed = 0;
+            if (result.usage && result.usage.total_tokens) {
+              tokenUsed = result.usage.total_tokens;
+            }
+            console.error('[INFO] 步骤数据融合完成，融合后的步骤:', fusedStep, 'token消耗:', tokenUsed);
+            resolve({ fusedStep, tokenUsed });
           } else {
             console.error('[ERROR] 模型响应格式不正确:', data);
             reject(new Error('模型响应格式不正确'));
@@ -275,7 +283,7 @@ function extractTotalTokensFromLogs() {
  * @since 2026-04-05
  * @author huangzhiyong081439
  */
-async function initBrowser() {
+async function initBrowser(cacheOpts) {
   if (browser) {
     return;
   }
@@ -306,12 +314,22 @@ async function initBrowser() {
       console.error('[INFO] 使用指定浏览器:', executablePath);
     }
     
+    // 检查是否启用节约模式
+    const saveTokenMode = process.env.SAVE_TOKEN_MODE === 'true';
+    if (saveTokenMode) {
+      console.error('[INFO] 节约模式已启用');
+      // 在节约模式下，可以降低截图分辨率等减少token消耗
+      launchOptions.args.push('--force-device-scale-factor=0.8');
+    }
+    
     browser = await chromium.launch(launchOptions);
     const context = await browser.newContext({
       viewport: { width: 1920, height: 1080 },
       locale: 'zh-CN',
       timezoneId: 'Asia/Shanghai',
       permissions: ['geolocation', 'notifications'],
+      // 节约模式：降低截图分辨率
+      deviceScaleFactor: saveTokenMode ? 0.8 : 1,
       // 强制请求使用UTF-8编码
       extraHTTPHeaders: {
         'Accept-Charset': 'utf-8'
@@ -334,7 +352,7 @@ async function initBrowser() {
           console.error('[DIALOG] 警告框已关闭:', dialog.message());
         }
       } catch (e) {
-        console.error('[DIALOG] 处理对话框失败:', e.message);
+        console.error('[DIALOG] 处理对话框失败:', e.message());
       }
     });
     
@@ -397,7 +415,7 @@ async function initBrowser() {
     });
     
     // 初始化 Midscene Agent
-    agent = new PlaywrightAgent(page);
+    agent = new PlaywrightAgent(page, cacheOpts);
     
     console.error('[INFO] 浏览器初始化成功');
     
@@ -542,22 +560,35 @@ async function checkAssertion(assertionDescription) {
  * - 如果提供了断言，执行AI断言检查
  * - 收集每个步骤的执行结果
  * - 执行完成后关闭浏览器
+ * - 支持 Midscene 缓存（USE_CACHE 环境变量）
+ * - 支持步骤数据融合缓存（fusedStepDescription）
  * 
  * @method executeSteps
  * @async
  * @param {Array<Object>} steps - 测试步骤数组，每个步骤包含：
  *   - stepNumber: number - 步骤序号
- *   - action: string - 操作指令描述
+ *   - action: string - 原始操作指令描述
  *   - assertion: string - 断言描述（可选）
+ *   - testData: string - 测试数据（可选）
+ *   - fusedStepDescription: string - 融合后的步骤描述（可选，用于缓存）
  * @returns {Promise<Array<Object>>} 返回步骤执行结果数组，每个结果包含：
  *   - stepNumber: number - 步骤序号
- *   - action: string - 执行的操作
+ *   - action: string - 融合后的操作（用于显示）
+ *   - assertion: string - 断言描述
+ *   - testData: string - 测试数据
+ *   - stepFusionDuration: number - 步骤数据融合耗时（毫秒）
+ *   - pageOperationDuration: number - 页面操作耗时（毫秒）
  *   - executionStatus: string - 执行状态（成功/失败）
  *   - assertionStatus: string - 断言状态（通过/失败/无）
+ *   - assertionDetails: Object - 断言详情
  *   - message: string - 执行消息
  *   - screenshot: string - 截图文件路径
  *   - screenshotBase64: string - 截图Base64编码或文件路径
  *   - executionTime: number - 执行耗时（毫秒）
+ *   - startTime: number - 开始时间（毫秒时间戳）
+ *   - endTime: number - 结束时间（毫秒时间戳）
+ *   - aiTokenUsed: number - AI token消耗总计
+ *   - fusedStepDescription: string - 融合后的步骤描述（用于缓存）
  * @since 2026-04-05
  * @author huangzhiyong081439
  */
@@ -570,12 +601,23 @@ async function executeSteps(steps) {
   }
   
   try {
-    // 获取图像断言检查场景的模型配置
-    await getModelConfigFromBackend('image_assertion');
-    // 获取步骤数据融合场景的模型配置
-    const stepFusionModel = await getModelConfigFromBackend('step_fusion');
+    // 获取图像断言检查场景的模型配置，并设置 Midscene 环境变量
+    await getModelConfigFromBackend('image_assertion', true);
+    // 获取步骤数据融合场景的模型配置，不设置 Midscene 环境变量
+    const stepFusionModel = await getModelConfigFromBackend('step_fusion', false);
     
-    await initBrowser();
+    // 检查是否启用 Midscene 缓存
+    const useCache = process.env.USE_CACHE === 'true';
+    const testCaseId = process.env.TEST_CASE_ID;
+    let cacheOpts = {};
+    if (useCache && testCaseId) {
+      console.error('[INFO] Midscene cache 已启用，cache ID:', `test-case-${testCaseId}`);
+      cacheOpts = { cache: { id: `test-case-${testCaseId}` } };
+    } else {
+      console.error('[INFO] Midscene cache 已禁用');
+    }
+    
+    await initBrowser(cacheOpts);
     
     console.error('');
     console.error('='.repeat(60));
@@ -585,32 +627,38 @@ async function executeSteps(steps) {
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
       const stepNumber = step.stepNumber || i + 1;
-      let action = step.action;
+      const originalAction = step.action; // 原始步骤描述
+      let fusedAction = originalAction; // 融合后的步骤描述（用于显示）
+      let midsceneInput = originalAction; // Midscene 输入（用于缓存）
       const assertion = step.assertion || '';
       const testData = step.testData || '';
+      const cachedFusedStepDescription = step.fusedStepDescription; // 缓存的融合步骤描述
       
-      // 如果有测试数据且配置了步骤数据融合模型，则进行数据融合
-      if (testData && testData.trim() && stepFusionModel) {
-        console.error(`🔄 步骤 ${stepNumber} 开始数据融合...`);
-        console.error(`   原始步骤: ${action}`);
-        console.error(`   测试数据: ${testData}`);
-        try {
-          action = await fuseStepData(stepFusionModel, action, testData);
-        } catch (e) {
-          console.error(`[WARN] 步骤数据融合失败，使用原始步骤: ${e.message}`);
-        }
+      let stepFusionDuration = 0;
+      let pageOperationDuration = 0;
+      
+      // 构建 Midscene 输入：原始步骤描述 + 测试数据（格式：原始步骤描述 | 测试数据）
+      if (testData && testData.trim()) {
+        midsceneInput = `${originalAction} | ${testData}`;
       }
       
       console.error('');
       console.error(`📊 步骤进度：[${stepNumber}/${steps.length}]`);
-      console.error(`🔹 执行步骤 ${stepNumber}: "${action}"`);
+      console.error(`🔹 执行步骤 ${stepNumber}: "${fusedAction}"`);
       console.error(`🔍 断言检查：${assertion.trim() ? '"' + assertion + '"' : '无'}`);
       console.error(`⏰ 开始时间：${new Date().toLocaleTimeString()}`);
       
       let stepResult = {
         stepNumber: stepNumber,
-        action: action,
+        action: fusedAction, // 显示融合后的步骤
         assertion: assertion,
+        testData: testData, // 添加测试数据字段
+        stepFusionDuration: stepFusionDuration, // 步骤数据融合耗时
+        pageOperationDuration: pageOperationDuration, // 页面操作耗时
+        assertionDuration: 0, // AI断言耗时
+        stepFusionTokenUsed: 0, // 步骤数据融合token消耗
+        pageOperationTokenUsed: 0, // 页面操作token消耗
+        assertionTokenUsed: 0, // AI断言token消耗
         executionStatus: '未知',
         assertionStatus: '未检查',
         assertionDetails: {
@@ -625,8 +673,54 @@ async function executeSteps(steps) {
         screenshotBase64: '',
         executionTime: 0,
         startTime: Date.now(),
-        aiTokenUsed: 0  // AI token消耗总计
+        aiTokenUsed: 0,  // AI token消耗总计（=数据融合+页面操作+断言）
+        fusedStepDescription: fusedAction // 保存融合后的步骤描述用于缓存
       };
+      
+      // 步骤数据融合（现在 stepResult 已经创建，可以直接赋值了）
+      if (testData && testData.trim()) {
+        // 如果有缓存的融合步骤描述，直接使用
+        if (cachedFusedStepDescription) {
+          console.error(`🔄 步骤 ${stepNumber} 使用缓存的融合步骤描述`);
+          console.error(`   原始步骤: ${originalAction}`);
+          console.error(`   测试数据: ${testData}`);
+          console.error(`   缓存融合步骤: ${cachedFusedStepDescription}`);
+          fusedAction = cachedFusedStepDescription;
+          stepResult.action = fusedAction;
+          stepResult.fusedStepDescription = fusedAction;
+          stepResult.stepFusionDuration = 0; // 使用缓存，耗时为0
+          stepResult.stepFusionTokenUsed = 0; // 使用缓存，token消耗为0
+        } 
+        // 否则，如果配置了步骤数据融合模型，则进行数据融合
+        else if (stepFusionModel) {
+          console.error(`🔄 步骤 ${stepNumber} 开始数据融合...`);
+          console.error(`   原始步骤: ${originalAction}`);
+          console.error(`   测试数据: ${testData}`);
+          try {
+            const fusionStartTime = Date.now();
+            const fusionResult = await fuseStepData(stepFusionModel, originalAction, testData);
+            fusedAction = fusionResult.fusedStep;
+            stepResult.action = fusedAction;
+            stepResult.fusedStepDescription = fusedAction;
+            stepResult.stepFusionTokenUsed = fusionResult.tokenUsed || 0; // 保存数据融合token消耗
+            const fusionEndTime = Date.now();
+            stepFusionDuration = fusionEndTime - fusionStartTime;
+            stepResult.stepFusionDuration = stepFusionDuration;
+          } catch (e) {
+            console.error(`[WARN] 步骤数据融合失败，使用原始步骤: ${e.message}`);
+            fusedAction = midsceneInput; // 融合失败时使用原始步骤描述+测试数据
+            stepResult.action = fusedAction;
+            stepResult.fusedStepDescription = fusedAction;
+            stepResult.stepFusionTokenUsed = 0;
+          }
+        } else {
+          // 没有配置融合模型，使用原始步骤描述+测试数据
+          fusedAction = midsceneInput;
+          stepResult.action = fusedAction;
+          stepResult.fusedStepDescription = fusedAction;
+          stepResult.stepFusionTokenUsed = 0;
+        }
+      }
       
       // 执行主操作
       try {
@@ -636,19 +730,24 @@ async function executeSteps(steps) {
         // 重置 AI profile logs 以捕获当前操作的 token 消耗
         aiProfileLogs = [];
         
-        const actionAiResponse = await agent.ai(action);
+        // Midscene 使用原始步骤描述+测试数据作为输入（确保缓存）
+        const actionAiResponse = await agent.ai(midsceneInput);
         
         // 从捕获的 AI profile logs 中提取总 token 消耗
         const actionTokens = extractTotalTokensFromLogs();
-        stepResult.aiTokenUsed += actionTokens;
+        stepResult.pageOperationTokenUsed = actionTokens; // 保存页面操作token消耗
+        stepResult.aiTokenUsed = stepResult.stepFusionTokenUsed + stepResult.pageOperationTokenUsed; // 目前是前两部分之和
         console.error(`[DEBUG] 主操作AI token消耗：${actionTokens}`);
+        console.error(`[DEBUG] 当前总token消耗：${stepResult.aiTokenUsed}（数据融合：${stepResult.stepFusionTokenUsed} + 页面操作：${stepResult.pageOperationTokenUsed}）`);
         
         const actionEndTime = Date.now();
+        pageOperationDuration = actionEndTime - actionStartTime;
+        stepResult.pageOperationDuration = pageOperationDuration; // 更新页面操作耗时
         stepResult.executionStatus = '成功';
-        stepResult.executionTime = actionEndTime - actionStartTime;
+        stepResult.executionTime = actionEndTime - stepResult.startTime; // 总耗时（从步骤开始到操作完成）
         stepResult.executionTimeStr = String(stepResult.executionTime);  // 字符串格式，确保后端能解析
-        stepResult.message = `操作指令执行成功，耗时：${stepResult.executionTime}ms`;
-        console.error(`✅ 步骤 ${stepNumber} 操作完成，耗时：${stepResult.executionTime}ms`);
+        stepResult.message = `操作指令执行成功，耗时：${stepResult.executionTime}ms（页面操作：${pageOperationDuration}ms，数据融合：${stepFusionDuration}ms）`;
+        console.error(`✅ 步骤 ${stepNumber} 操作完成，总耗时：${stepResult.executionTime}ms（页面操作：${pageOperationDuration}ms，数据融合：${stepFusionDuration}ms）`);
         
         // 等待页面加载
         console.error(`⏳ 等待页面加载...`);
@@ -666,7 +765,8 @@ async function executeSteps(steps) {
         });
         
         stepResult.screenshot = screenshotPath;
-        stepResult.screenshotBase64 = 'file:' + screenshotPath; console.error('[DEBUG] 设置screenshotBase64为:', stepResult.screenshotBase64); // 保存文件路径而不是完整base64
+        stepResult.screenshotBase64 = 'file:' + screenshotPath; 
+        console.error('[DEBUG] 设置screenshotBase64为:', stepResult.screenshotBase64); // 保存文件路径而不是完整base64
         console.error(`📁 截图已保存：${screenshotPath}`);
         
         // 执行断言检查（如果提供了断言内容）
@@ -680,14 +780,20 @@ async function executeSteps(steps) {
             const assertionEndTime = Date.now();
             const assertionTime = assertionEndTime - assertionStartTime;
             
+            stepResult.assertionDuration = assertionTime; // 保存AI断言耗时
             stepResult.assertionDetails = assertionResult;
             // 调试：打印完整的断言响应结构
             console.error(`[DEBUG] 断言AI响应类型: ${typeof assertionResult}`);
             console.error(`[DEBUG] 断言AI响应完整结构:`, JSON.stringify(assertionResult, null, 2));
             // 从捕获的 AI profile logs 中提取断言的 token 消耗
             const assertionTokens = extractTotalTokensFromLogs();
-            stepResult.aiTokenUsed += assertionTokens || 0;
+            stepResult.assertionTokenUsed = assertionTokens || 0; // 保存断言token消耗
+            stepResult.aiTokenUsed = stepResult.stepFusionTokenUsed + stepResult.pageOperationTokenUsed + stepResult.assertionTokenUsed; // 总token消耗=三部分之和
             console.error(`[DEBUG] 断言AI token消耗: ${assertionTokens}, 单步总计: ${stepResult.aiTokenUsed}`);
+            
+            // 总耗时 = 数据融合耗时 + 页面操作耗时 + AI断言耗时
+            stepResult.executionTime = stepResult.stepFusionDuration + stepResult.pageOperationDuration + assertionTime;
+            stepResult.executionTimeStr = String(stepResult.executionTime);
             
             if (assertionResult.pass) {
               stepResult.assertionStatus = '通过';
@@ -721,6 +827,9 @@ async function executeSteps(steps) {
             message: '未提供断言内容，跳过检查',
             error: null
           };
+          // 没有断言时，总耗时 = 数据融合耗时 + 页面操作耗时
+          stepResult.executionTime = stepResult.stepFusionDuration + stepResult.pageOperationDuration;
+          stepResult.executionTimeStr = String(stepResult.executionTime);
         }
         
       } catch (stepError) {
@@ -737,7 +846,8 @@ async function executeSteps(steps) {
             type: 'png'
           });
           stepResult.screenshot = screenshotPath;
-          stepResult.screenshotBase64 = 'file:' + screenshotPath; console.error('[DEBUG] 设置screenshotBase64为:', stepResult.screenshotBase64); // 保存文件路径而不是完整base64
+          stepResult.screenshotBase64 = 'file:' + screenshotPath; 
+          console.error('[DEBUG] 设置screenshotBase64为:', stepResult.screenshotBase64); // 保存文件路径而不是完整base64
           console.error(`📁 错误截图已保存：${screenshotPath}`);
         } catch (e) {
           console.error('[WARN] 失败截图也失败了:', e.message);
@@ -745,6 +855,10 @@ async function executeSteps(steps) {
       }
       
       stepResult.endTime = Date.now();
+      
+      // 输出单个步骤结果的 JSON，让后端可以实时更新
+      console.log(JSON.stringify({ stepResult }));
+      
       results.push(stepResult);
     }
     
@@ -771,9 +885,9 @@ async function executeSteps(steps) {
 const args = process.argv.slice(2);
 
 if (args.length < 1) {
-  console.error('用法：node executor.js \'[{"action":"...","assertion":"..."}]\'');
+  console.error('用法：node executor.js \'[{"action":"...","assertion":"...","testData":"...","fusedStepDescription":"..."}]\'');
   console.error('示例：');
-  console.error('  node executor.js \'[{"action":"打开 http://example.com","assertion":""}]\'');
+  console.error('  node executor.js \'[{"action":"打开 http://example.com","assertion":"","testData":"","fusedStepDescription":""}]\'');
   process.exit(1);
 }
 

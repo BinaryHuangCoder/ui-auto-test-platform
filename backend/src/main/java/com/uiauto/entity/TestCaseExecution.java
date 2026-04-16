@@ -106,6 +106,16 @@ public class TestCaseExecution {
     private Long aiTotalTokenUsed;
     
     /**
+     * 图像断言检查使用的模型
+     */
+    private String imageAssertionModel;
+    
+    /**
+     * 步骤数据融合使用的模型
+     */
+    private String stepFusionModel;
+    
+    /**
      * 错误信息
      */
     private String errorMessage;

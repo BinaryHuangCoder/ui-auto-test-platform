@@ -78,6 +78,46 @@ public class TestStepExecution {
     private String errorMessage;
     
     /**
+     * 测试数据
+     */
+    private String testData;
+    
+    /**
+     * 融合后的步骤描述
+     */
+    private String fusedStepDescription;
+    
+    /**
+     * 步骤数据融合耗时（毫秒）
+     */
+    private Long stepFusionDuration;
+    
+    /**
+     * 页面操作耗时（毫秒）
+     */
+    private Long pageOperationDuration;
+    
+    /**
+     * AI断言耗时（毫秒）
+     */
+    private Long assertionDuration;
+    
+    /**
+     * 步骤数据融合token消耗
+     */
+    private Long stepFusionTokenUsed;
+    
+    /**
+     * 页面操作token消耗
+     */
+    private Long pageOperationTokenUsed;
+    
+    /**
+     * AI断言token消耗
+     */
+    private Long assertionTokenUsed;
+    
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;

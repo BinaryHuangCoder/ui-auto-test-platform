@@ -23,17 +23,19 @@ export function getStepExecutions(executionId, pageNum = 1, pageSize = 5) {
   })
 }
 
-export function runCase(caseId) {
+export function runCase(caseId, saveTokenMode = false) {
   return request({
     url: `/execution/run/${caseId}`,
-    method: 'post'
+    method: 'post',
+    params: { saveTokenMode }
   })
 }
 
-export function runBatchCase(caseIds) {
+export function runBatchCase(caseIds, saveTokenMode = false) {
   return request({
     url: '/execution/run/batch',
     method: 'post',
+    params: { saveTokenMode },
     data: caseIds
   })
 }
