@@ -875,10 +875,9 @@ const openCaseSelectDialog = async (task) => {
   caseKeyword.value = ''
   selectedCaseIds.value = []
   
-  await Promise.all([
-    fetchCaseList(),
-    fetchSelectedCaseIds()
-  ])
+  // 先获取已关联的用例ID，再获取用例列表，最后反显
+  await fetchSelectedCaseIds()
+  await fetchCaseList()
 }
 
 const fetchCaseList = async () => {
@@ -897,11 +896,17 @@ const fetchCaseList = async () => {
       // 自动勾选已关联的用例
       await nextTick()
       if (caseTableRef.value && selectedCaseIds.value.length > 0) {
-        caseTableData.value.forEach(row => {
-          if (selectedCaseIds.value.includes(row.id)) {
-            caseTableRef.value.toggleRowSelection(row, true)
-          }
-        })
+        // 保存一份选中ID的快照，防止后续被修改
+        const selectedIdsSnapshot = [...selectedCaseIds.value]
+        
+        // 延迟一点，确保表格完全渲染
+        setTimeout(() => {
+          // 逐个检查和勾选
+          caseTableData.value.forEach(row => {
+            const isSelected = selectedIdsSnapshot.some(id => Number(id) === Number(row.id))
+            caseTableRef.value.toggleRowSelection(row, isSelected)
+          })
+        }, 100)
       }
     } else {
       ElMessage.error(res.message || '查询失败')

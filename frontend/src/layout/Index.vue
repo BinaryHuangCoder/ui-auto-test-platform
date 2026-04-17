@@ -59,7 +59,11 @@
     <el-container>
       <el-header class="header">
         <div class="header-left">
-          <span class="page-title">{{ pageTitle }}</span>
+          <el-breadcrumb separator="/">
+            <el-breadcrumb-item v-for="(item, index) in breadcrumbs" :key="index" :to="item.path">
+              {{ item.title }}
+            </el-breadcrumb-item>
+          </el-breadcrumb>
         </div>
         <div class="header-right">
           <el-dropdown @command="handleCommand">
@@ -244,6 +248,41 @@ const pageTitle = computed(() => {
     '/system/model': '模型管理'
   }
   return titleMap[route.path] || 'UI自动化测试平台'
+})
+
+const breadcrumbs = computed(() => {
+  const path = route.path
+  const crumbs = []
+  
+  // 首页
+  crumbs.push({ title: '首页', path: '/dashboard' })
+  
+  if (path.startsWith('/test')) {
+    crumbs.push({ title: '测试管理', path: '' })
+    if (path === '/test/case') {
+      crumbs.push({ title: '测试用例', path: '/test/case' })
+    } else if (path === '/test/case-detail') {
+      crumbs.push({ title: '测试用例', path: '/test/case' })
+      crumbs.push({ title: '用例详情', path: '' })
+    } else if (path === '/test/task') {
+      crumbs.push({ title: '测试任务', path: '/test/task' })
+    } else if (path === '/test/report') {
+      crumbs.push({ title: '测试报告', path: '/test/report' })
+    }
+  } else if (path.startsWith('/system')) {
+    crumbs.push({ title: '平台管理', path: '' })
+    if (path === '/system/user') {
+      crumbs.push({ title: '用户管理', path: '/system/user' })
+    } else if (path === '/system/department') {
+      crumbs.push({ title: '部门管理', path: '/system/department' })
+    } else if (path === '/system/system') {
+      crumbs.push({ title: '系统管理', path: '/system/system' })
+    } else if (path === '/system/model') {
+      crumbs.push({ title: '模型管理', path: '/system/model' })
+    }
+  }
+  
+  return crumbs
 })
 
 onMounted(() => {
