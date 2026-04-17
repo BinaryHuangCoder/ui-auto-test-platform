@@ -72,6 +72,11 @@ public class TestTask {
     private Integer status;
     
     /**
+     * 并发数：1-10，默认为1
+     */
+    private Integer concurrency;
+    
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;

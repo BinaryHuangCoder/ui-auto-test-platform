@@ -78,6 +78,14 @@ public class TestTaskExecutionController {
     @GetMapping("/{taskExecutionId}/steps")
     public Result<List<TestTaskStepExecution>> listStepsByTaskExecutionId(@PathVariable Long taskExecutionId) {
         List<TestTaskStepExecution> steps = testTaskStepExecutionService.listByTaskExecutionId(taskExecutionId);
+        // 处理截图路径，将绝对路径转换为相对路径
+        String basePath = System.getProperty("user.home") + "/.openclaw/workspace/ui-auto-test-platform/screenshots/";
+        for (TestTaskStepExecution step : steps) {
+            String screenshot = step.getScreenshot();
+            if (screenshot != null && screenshot.startsWith(basePath)) {
+                step.setScreenshot("/screenshots/" + screenshot.substring(basePath.length()));
+            }
+        }
         return Result.success(steps);
     }
 }

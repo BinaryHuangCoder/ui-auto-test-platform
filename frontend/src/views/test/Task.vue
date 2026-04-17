@@ -100,6 +100,15 @@
           </template>
         </el-table-column>
         <el-table-column 
+          prop="concurrency" 
+          label="并发数" 
+          width="90"
+        >
+          <template #default="scope">
+            <el-tag type="info" size="small">{{ scope.row.concurrency || 1 }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column 
           v-if="taskTableColumns.find(c => c.prop === 'status')?.visible"
           prop="status" 
           label="状态" 
@@ -205,6 +214,29 @@
           <el-input v-model="formData.cronExpression" placeholder="Cron表达式" style="margin-top: 10px;" maxlength="100" />
           <div style="font-size: 12px; color: #909399; margin-top: 5px;">
             Cron表达式格式：秒 分 时 日 月 周
+          </div>
+        </el-form-item>
+        <el-form-item label="并发数" prop="concurrency">
+          <div style="display: flex; align-items: center; gap: 12px; width: 100%;">
+            <el-slider
+              v-model="formData.concurrency"
+              :min="1"
+              :max="10"
+              :step="1"
+              :show-tooltip="false"
+              style="flex: 1;"
+            />
+            <el-input-number
+              v-model="formData.concurrency"
+              :min="1"
+              :max="10"
+              :step="1"
+              :controls="false"
+              style="width: 80px;"
+            />
+          </div>
+          <div style="font-size: 12px; color: #909399; margin-top: 5px;">
+            并发数范围：1-10，默认为1
           </div>
         </el-form-item>
         <el-form-item label="状态" prop="status">
@@ -321,6 +353,18 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="任务进度" width="200">
+          <template #default="scope">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <el-progress
+                :percentage="getProgressPercentage(scope.row)"
+                :color="getProgressColor(scope.row)"
+                :stroke-width="8"
+                style="flex: 1;"
+              />
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="aiTotalTokenUsed" width="150">
           <template #header>
             <span>AI token消耗
@@ -356,8 +400,8 @@
         :row-class-name="caseExecutionTableRowClassName"
         @row-click="showCaseStepExecutions"
       >
-        <el-table-column prop="caseName" label="用例名称" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="executor" label="执行人" width="100">
+        <el-table-column prop="caseName" label="用例名称" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="executor" label="执行人" width="90">
           <template #default="scope">
             {{ scope.row.executorNickname || scope.row.executor || '-' }}
           </template>
@@ -377,6 +421,25 @@
             <el-tag :type="getExecutionStatusType(scope.row.status)" size="small">
               {{ getExecutionStatusText(scope.row.status) }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="测试进度" width="150">
+          <template #default="scope">
+            <el-progress
+              :percentage="getProgressPercentage(scope.row)"
+              :color="getProgressColor(scope.row)"
+              :stroke-width="8"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column prop="imageAssertionModel" label="图像断言模型" min-width="150" show-overflow-tooltip>
+          <template #default="scope">
+            {{ scope.row.imageAssertionModel || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="stepFusionModel" label="数据融合模型" min-width="150" show-overflow-tooltip>
+          <template #default="scope">
+            {{ scope.row.stepFusionModel || '-' }}
           </template>
         </el-table-column>
         <el-table-column prop="aiTotalTokenUsed" width="150">
@@ -414,14 +477,14 @@
       >
         <el-table-column prop="stepNo" label="步骤号" width="70" />
         <el-table-column prop="stepDescription" label="步骤描述" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="testData" label="测试数据" min-width="120" show-overflow-tooltip>
+          <template #default="scope">
+            {{ scope.row.testData || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="startTime" label="开始时间" width="170">
           <template #default="scope">
             {{ formatDateTime(scope.row.startTime) }}
-          </template>
-        </el-table-column>
-        <el-table-column prop="duration" label="耗时" width="80">
-          <template #default="scope">
-            {{ scope.row.duration ? (scope.row.duration / 1000).toFixed(2) + 's' : '-' }}
           </template>
         </el-table-column>
         <el-table-column prop="status" label="执行状态" width="90">
@@ -429,6 +492,14 @@
             <el-tag :type="getStepStatusType(scope.row.status)" size="small">
               {{ getStepStatusText(scope.row.status) }}
             </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="errorMessage" label="执行失败描述" min-width="180" show-overflow-tooltip>
+          <template #default="scope">
+            <span v-if="scope.row.errorMessage && scope.row.errorMessage !== '无'" style="color: var(--el-color-danger);">
+              {{ scope.row.errorMessage }}
+            </span>
+            <span v-else class="text-muted">无</span>
           </template>
         </el-table-column>
         <el-table-column prop="assertionStatus" label="断言状态" width="100">
@@ -446,16 +517,51 @@
             <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="aiTokenUsed" width="150">
+        <el-table-column prop="duration" label="耗时" width="80">
+          <template #default="scope">
+            {{ scope.row.duration ? (scope.row.duration / 1000).toFixed(2) + 's' : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="stepFusionDuration" label="数据融合耗时" width="110">
+          <template #default="scope">
+            {{ scope.row.stepFusionDuration ? (scope.row.stepFusionDuration / 1000).toFixed(2) + 's' : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="pageOperationDuration" label="页面操作耗时" width="110">
+          <template #default="scope">
+            {{ scope.row.pageOperationDuration ? (scope.row.pageOperationDuration / 1000).toFixed(2) + 's' : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="assertionDuration" label="AI断言耗时" width="110">
+          <template #default="scope">
+            {{ scope.row.assertionDuration ? (scope.row.assertionDuration / 1000).toFixed(2) + 's' : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column width="180">
           <template #header>
             <span>AI token消耗
-              <el-tooltip content="数据来自Midscene AI调用的真实token消耗统计" placement="top">
+              <el-tooltip content="数据融合token消耗+页面操作token消耗+AI断言token消耗" placement="top">
                 <el-icon style="margin-left: 4px; cursor: pointer; color: var(--el-color-info);"><QuestionFilled /></el-icon>
               </el-tooltip>
             </span>
           </template>
           <template #default="scope">
             {{ scope.row.aiTokenUsed || 0 }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="stepFusionTokenUsed" label="数据融合token消耗" width="170">
+          <template #default="scope">
+            {{ scope.row.stepFusionTokenUsed || 0 }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="pageOperationTokenUsed" label="页面操作token消耗" width="170">
+          <template #default="scope">
+            {{ scope.row.pageOperationTokenUsed || 0 }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="assertionTokenUsed" label="AI断言token消耗" width="170">
+          <template #default="scope">
+            {{ scope.row.assertionTokenUsed || 0 }}
           </template>
         </el-table-column>
         <el-table-column label="截图" width="70">
@@ -520,6 +626,7 @@ const taskTableColumns = ref([
   { prop: 'createTime', label: '创建时间', visible: true },
   { prop: 'latestExecuteTime', label: '最新执行时间', visible: true },
   { prop: 'cronExpression', label: '定时策略', visible: true },
+  { prop: 'concurrency', label: '并发数', visible: true },
   { prop: 'status', label: '状态', visible: true }
 ])
 
@@ -530,9 +637,10 @@ const formRef = ref(null)
 const formData = reactive({
   id: null,
   taskNo: '',
-  name: '',
+  taskName: '',
   creator: '',
   cronExpression: '',
+  concurrency: 1,
   status: 1
 })
 
@@ -1012,6 +1120,7 @@ const openDialog = (type, row = null) => {
       taskName: '',
       creator: '',
       cronExpression: '',
+      concurrency: 1,
       status: 1
     })
   } else if (type === 'edit' && row) {
@@ -1021,6 +1130,7 @@ const openDialog = (type, row = null) => {
       taskName: row.taskName,
       creator: row.creator,
       cronExpression: row.cronExpression || '',
+      concurrency: row.concurrency || 1,
       status: row.status
     })
   }
@@ -1135,6 +1245,31 @@ const batchDelete = () => {
       ElMessage.error('批量删除失败')
     }
   }).catch(() => {})
+}
+
+/**
+ * 获取测试进度百分比
+ * @param row 执行记录行
+ * @returns 进度百分比
+ */
+const getProgressPercentage = (row) => {
+  if (!row.totalCount || row.totalCount === 0) return 0
+  const completedCount = (row.passedCount || 0) + (row.failedCount || 0)
+  return Math.round((completedCount / row.totalCount) * 100)
+}
+
+/**
+ * 获取测试进度条颜色
+ * @param row 执行记录行
+ * @returns 进度条颜色
+ */
+const getProgressColor = (row) => {
+  const percentage = getProgressPercentage(row)
+  if (row.status === 'success') return '#67c23a' // 绿色
+  if (row.status === 'failed') return '#f56c6c' // 红色
+  if (percentage >= 80) return '#67c23a' // 80%以上绿色
+  if (percentage >= 50) return '#e6a23c' // 50-80%橙色
+  return '#409eff' // 默认蓝色
 }
 
 // 初始化

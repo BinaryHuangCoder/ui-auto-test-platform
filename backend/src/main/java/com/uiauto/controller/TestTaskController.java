@@ -17,6 +17,8 @@ import com.uiauto.service.TestCaseService;
 import com.uiauto.service.TestCaseStepService;
 import com.uiauto.service.TestStepExecutionService;
 import com.uiauto.service.TestTaskCaseService;
+import com.uiauto.service.ModelScenarioService;
+import com.uiauto.service.ModelService;
 import com.uiauto.service.TestTaskExecutionService;
 import com.uiauto.service.TestTaskService;
 import com.uiauto.service.UserService;
@@ -34,6 +36,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 测试任务Controller
@@ -69,6 +76,12 @@ public class TestTaskController {
     
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private ModelService modelService;
+
+    @Autowired
+    private ModelScenarioService modelScenarioService;
     
     @Value("${executor.node-path:/usr/local/bin/node}")
     private String nodePath;
@@ -127,6 +140,15 @@ public class TestTaskController {
             testTask.setStatus(1);
         }
         
+        // 设置并发数默认为1，范围1-10
+        if (testTask.getConcurrency() == null) {
+            testTask.setConcurrency(1);
+        } else if (testTask.getConcurrency() < 1) {
+            testTask.setConcurrency(1);
+        } else if (testTask.getConcurrency() > 10) {
+            testTask.setConcurrency(10);
+        }
+        
         // 设置时间
         LocalDateTime now = LocalDateTime.now();
         testTask.setCreateTime(now);
@@ -156,6 +178,15 @@ public class TestTaskController {
         // 不允许修改任务编号和创建人
         testTask.setTaskNo(null);
         testTask.setCreator(null);
+        
+        // 验证并发数范围1-10
+        if (testTask.getConcurrency() != null) {
+            if (testTask.getConcurrency() < 1) {
+                testTask.setConcurrency(1);
+            } else if (testTask.getConcurrency() > 10) {
+                testTask.setConcurrency(10);
+            }
+        }
         
         boolean success = testTaskService.updateById(testTask);
         if (success) {
@@ -253,147 +284,85 @@ public class TestTaskController {
         taskExecution.setExecuteTime(LocalDateTime.now());
         taskExecution.setStartTime(LocalDateTime.now());
         taskExecution.setStatus("running");
+        taskExecution.setTotalCount(caseIds.size());
+        taskExecution.setPassedCount(0);
+        taskExecution.setFailedCount(0);
         testTaskExecutionService.save(taskExecution);
 
-        // 异步执行所有关联用例
+        // 创建一个 effectively final 的引用
+        final TestTaskExecution finalTaskExecutionRef = taskExecution;
+        final List<Long> finalCaseIds = caseIds;
+        
+        // 获取并发数，默认为1
+        int concurrency = task.getConcurrency() != null ? task.getConcurrency() : 1;
+        if (concurrency < 1) concurrency = 1;
+        if (concurrency > 10) concurrency = 10;
+        final int finalConcurrency = concurrency;
+        
+        // 异步执行所有关联用例（支持并发）
         CompletableFuture.runAsync(() -> {
-            TestTaskExecution finalTaskExecution = taskExecution;
             // 用于累加所有用例的AI总token消耗
-            long totalTaskAiTokenUsed = 0;
+            AtomicLong totalTaskAiTokenUsed = new AtomicLong(0);
+            // 用于统计通过和失败的用例数
+            AtomicInteger passedCount = new AtomicInteger(0);
+            AtomicInteger failedCount = new AtomicInteger(0);
+            
+            // 创建线程池，使用固定大小的线程池
+            ExecutorService executorService = Executors.newFixedThreadPool(finalConcurrency);
+            
             try {
-                // 异步执行所有用例，复用TestCaseExecutionController的完整逻辑
-                List<CompletableFuture<Long>> futures = new ArrayList<>();
-                for (Long caseId : caseIds) {
-                    final Long finalTaskExecutionId = finalTaskExecution.getId();
-                    CompletableFuture<Long> future = CompletableFuture.supplyAsync(() -> {
-                        long caseAiTokenUsed = 0;
+                // 提交所有用例到线程池并发执行
+                List<CompletableFuture<Void>> futures = new ArrayList<>();
+                for (Long caseId : finalCaseIds) {
+                    CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                         try {
-                            TestCase testCase = testCaseService.getById(caseId);
-                            if (testCase == null) return 0L;
-
-                            List<TestCaseStep> steps = testCaseStepService.list(
-                                new LambdaQueryWrapper<TestCaseStep>()
-                                    .eq(TestCaseStep::getCaseId, caseId)
-                                    .orderByAsc(TestCaseStep::getStepNo)
-                            );
-                            if (steps.isEmpty()) return 0L;
-
-                            // 创建执行记录
-                            TestCaseExecution execution = new TestCaseExecution();
-                            execution.setCaseId(caseId);
-                            execution.setTaskExecutionId(finalTaskExecutionId);
-                            execution.setCaseNo(testCase.getCaseNo());
-                            execution.setCaseName(testCase.getName());
-                            execution.setDescription(testCase.getDescription());
-                            execution.setExecutor("admin");
-                            execution.setStartTime(LocalDateTime.now());
-                            execution.setStatus("running");
-                            testCaseExecutionService.save(execution);
-
-                            // 先创建所有步骤执行记录，状态设为pending（未执行）
-                            for (TestCaseStep step : steps) {
-                                TestStepExecution stepExecution = new TestStepExecution();
-                                stepExecution.setExecutionId(execution.getId());
-                                stepExecution.setStepNo(step.getStepNo());
-                                stepExecution.setStepDescription(step.getStepDescription());
-                                stepExecution.setAssertionDescription(step.getAssertionDescription());
-                                stepExecution.setStatus("pending");
-                                stepExecution.setAssertionStatus("none");
-                                stepExecution.setAiResult("- 等待执行");
-                                stepExecution.setCreateTime(LocalDateTime.now());
-                                testStepExecutionService.save(stepExecution);
-                            }
-
-                            // 异步执行步骤（批量模式）
-                            long start = System.currentTimeMillis();
-                            // 用于累加AI总token消耗
-                            long totalAiTokenUsed = 0;
-
-                            try {
-                                String executorPath = scriptsDir + java.io.File.separator + executorScript;
-
-                                // 构建步骤 JSON 数组（批量执行）- 使用字符串拼接
-                                StringBuilder stepsJson = new StringBuilder("[");
-                                for (int i = 0; i < steps.size(); i++) {
-                                    TestCaseStep step = steps.get(i);
-                                    if (i > 0) stepsJson.append(",");
-                                    stepsJson.append("{");
-                                    stepsJson.append("\"action\":\"").append(escapeJson(step.getStepDescription())).append("\"");
-                                    stepsJson.append(",\"assertion\":\"").append(escapeJson(step.getAssertionDescription() != null ? step.getAssertionDescription() : "")).append("\"");
-                                    stepsJson.append(",\"stepNumber\":").append(step.getStepNo());
-                                    stepsJson.append("}");
-                                }
-                                stepsJson.append("]");
-                                
-                                System.err.println("[INFO] 开始批量执行，共 " + steps.size() + " 个步骤");
-                                
-                                // 批量执行所有步骤
-                                String batchResult = executeStepsBatch(executorPath, stepsJson.toString());
-                                
-                                // 解析结果并更新步骤执行记录，返回总AI token消耗
-                                long[] result = parseAndUpdateResults(batchResult, execution.getId(), steps);
-                                boolean allSuccess = (result[0] == 1);
-                                totalAiTokenUsed = result[1];
-                                caseAiTokenUsed = totalAiTokenUsed;
-                                
-                                // 更新执行记录状态
-                                long end = System.currentTimeMillis();
-                                execution.setDuration(end - start);
-                                execution.setEndTime(LocalDateTime.now());
-                                execution.setStatus(allSuccess ? "success" : "failed");
-                                execution.setAiTotalTokenUsed(totalAiTokenUsed);
-                                testCaseExecutionService.updateById(execution);
-                                
-                                // 如果执行失败，更新所有未完成的步骤状态为失败
-                                if (!allSuccess) {
-                                    updatePendingStepsToFailed(execution.getId());
-                                }
-                                
-                                System.err.println("[INFO] 用例执行完成，总耗时：" + (end - start) + "ms, 状态：" + execution.getStatus());
-                            } catch (Exception e) {
-                                System.err.println("[ERROR] 用例执行失败：" + e.getMessage());
-                                e.printStackTrace();
-                                
-                                // 更新执行记录状态为失败
-                                execution.setStatus("failed");
-                                execution.setEndTime(LocalDateTime.now());
-                                execution.setDescription(execution.getDescription() + " [执行失败：" + e.getMessage() + "]");
-                                testCaseExecutionService.updateById(execution);
-                                
-                                // 更新所有未完成的步骤状态为失败
-                                updatePendingStepsToFailed(execution.getId());
-                            }
+                            Long caseAiTokenUsed = testCaseExecutionService.executeTestCase(
+                                caseId, "admin", "standard", finalTaskExecutionRef.getId());
+                            totalTaskAiTokenUsed.addAndGet(caseAiTokenUsed);
+                            passedCount.incrementAndGet();
                         } catch (Exception e) {
                             e.printStackTrace();
+                            failedCount.incrementAndGet();
                         }
-                        return caseAiTokenUsed;
-                    });
+                        // 实时更新任务执行记录的进度
+                        finalTaskExecutionRef.setPassedCount(passedCount.get());
+                        finalTaskExecutionRef.setFailedCount(failedCount.get());
+                        testTaskExecutionService.updateById(finalTaskExecutionRef);
+                    }, executorService);
                     futures.add(future);
                 }
-
-                // 等待所有用例执行完成，并累加所有用例的AI token消耗
-                List<Long> caseAiTokenUsedList = CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-                        .thenApply(v -> futures.stream().map(CompletableFuture::join).collect(java.util.stream.Collectors.toList()))
-                        .join();
-                totalTaskAiTokenUsed = caseAiTokenUsedList.stream().mapToLong(Long::longValue).sum();
+                
+                // 等待所有用例执行完成
+                CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).join();
 
                 // 更新任务执行记录为成功
-                finalTaskExecution.setEndTime(LocalDateTime.now());
-                finalTaskExecution.setDuration(java.time.Duration.between(
-                    finalTaskExecution.getStartTime(), finalTaskExecution.getEndTime()).toMillis());
-                finalTaskExecution.setStatus("success");
-                finalTaskExecution.setAiTotalTokenUsed(totalTaskAiTokenUsed);
-                testTaskExecutionService.updateById(finalTaskExecution);
+                finalTaskExecutionRef.setEndTime(LocalDateTime.now());
+                finalTaskExecutionRef.setDuration(java.time.Duration.between(
+                    finalTaskExecutionRef.getStartTime(), finalTaskExecutionRef.getEndTime()).toMillis());
+                finalTaskExecutionRef.setStatus("success");
+                finalTaskExecutionRef.setAiTotalTokenUsed(totalTaskAiTokenUsed.get());
+                testTaskExecutionService.updateById(finalTaskExecutionRef);
 
             } catch (Exception e) {
                 e.printStackTrace();
                 // 更新任务执行记录为失败
-                finalTaskExecution.setEndTime(LocalDateTime.now());
-                finalTaskExecution.setDuration(java.time.Duration.between(
-                    finalTaskExecution.getStartTime(), finalTaskExecution.getEndTime()).toMillis());
-                finalTaskExecution.setStatus("failed");
-                finalTaskExecution.setAiTotalTokenUsed(totalTaskAiTokenUsed);
-                testTaskExecutionService.updateById(finalTaskExecution);
+                finalTaskExecutionRef.setEndTime(LocalDateTime.now());
+                finalTaskExecutionRef.setDuration(java.time.Duration.between(
+                    finalTaskExecutionRef.getStartTime(), finalTaskExecutionRef.getEndTime()).toMillis());
+                finalTaskExecutionRef.setStatus("failed");
+                finalTaskExecutionRef.setAiTotalTokenUsed(totalTaskAiTokenUsed.get());
+                testTaskExecutionService.updateById(finalTaskExecutionRef);
+            } finally {
+                // 关闭线程池
+                executorService.shutdown();
+                try {
+                    if (!executorService.awaitTermination(60, TimeUnit.SECONDS)) {
+                        executorService.shutdownNow();
+                    }
+                } catch (InterruptedException e) {
+                    executorService.shutdownNow();
+                    Thread.currentThread().interrupt();
+                }
             }
         });
 

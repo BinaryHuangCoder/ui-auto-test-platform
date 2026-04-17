@@ -1,0 +1,11 @@
+midsceneVersion: 1.6.0
+cacheId: test-case-1
+caches:
+  - type: plan
+    prompt: 打开百度一下页面哈 | https://www.baidu.com/ | https://www.baidu.com/
+    yamlWorkflow: |
+      tasks:
+        - name: 打开百度一下页面哈 | https://www.baidu.com/ | https://www.baidu.com/
+          flow:
+            - Navigate: ''
+              url: https://www.baidu.com/

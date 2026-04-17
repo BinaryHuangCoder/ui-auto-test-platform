@@ -1,0 +1,26 @@
+midsceneVersion: 1.6.0
+cacheId: test-case-2
+caches:
+  - type: plan
+    prompt: 打开党建E家 | https://www.xmdjej.gov.cn/ | https://www.xmdjej.gov.cn/
+    yamlWorkflow: |
+      tasks:
+        - name: 打开党建E家 | https://www.xmdjej.gov.cn/ | https://www.xmdjej.gov.cn/
+          flow:
+            - Navigate: ''
+              url: https://www.xmdjej.gov.cn/
+  - type: plan
+    prompt: 输入身份证号 | 66666666 | 66666666
+    yamlWorkflow: |
+      tasks:
+        - name: 输入身份证号 | 66666666 | 66666666
+          flow:
+            - aiTap: ''
+              locate: 身份证号输入框
+            - aiInput: ''
+              value: '6666666666666666'
+  - type: locate
+    prompt: 身份证号输入框
+    cache:
+      xpaths:
+        - /html/body/div[2]/div[2]/div[1]/div[1]/div[1]/input[1]

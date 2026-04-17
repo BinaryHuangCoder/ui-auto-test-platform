@@ -98,188 +98,13 @@ public class TestCaseExecutionController {
         if (steps.isEmpty()) {
             return Result.error("该用例没有配置步骤");
         }
-        
-        // 创建执行记录
-        TestCaseExecution execution = new TestCaseExecution();
-        execution.setCaseId(caseId);
-        execution.setTaskExecutionId(taskExecutionId);
-        execution.setCaseName(testCase.getName());
-        execution.setDescription(testCase.getDescription());
-        execution.setExecutor("admin");
-        execution.setStartTime(LocalDateTime.now());
-        execution.setStatus("running");
-        execution.setTotalCount(steps.size()); // 设置总步骤数
-        execution.setPassedCount(0); // 初始化成功步骤数
-        execution.setFailedCount(0); // 初始化失败步骤数
-        // 获取图像断言检查和步骤数据融合使用的模型
-        try {
-            // 获取图像断言检查场景的模型
-            ModelScenario imageAssertionScenario = modelScenarioService.lambdaQuery()
-                .eq(ModelScenario::getScenarioCode, "image_assertion")
-                .one();
-            if (imageAssertionScenario != null && imageAssertionScenario.getModelId() != null) {
-                Model imageAssertionModel = modelService.getById(imageAssertionScenario.getModelId());
-                if (imageAssertionModel != null) {
-                    execution.setImageAssertionModel(imageAssertionModel.getModelName());
-                }
-            }
-            
-            // 获取步骤数据融合场景的模型
-            ModelScenario stepFusionScenario = modelScenarioService.lambdaQuery()
-                .eq(ModelScenario::getScenarioCode, "step_fusion")
-                .one();
-            if (stepFusionScenario != null && stepFusionScenario.getModelId() != null) {
-                Model stepFusionModel = modelService.getById(stepFusionScenario.getModelId());
-                if (stepFusionModel != null) {
-                    execution.setStepFusionModel(stepFusionModel.getModelName());
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("[WARN] 获取模型信息失败: " + e.getMessage());
-        }
-        
-        executionService.save(execution);
-        
-        // 先创建所有步骤执行记录，状态设为pending（未执行）
-        for (TestCaseStep step : steps) {
-            TestStepExecution stepExecution = new TestStepExecution();
-            stepExecution.setExecutionId(execution.getId());
-            stepExecution.setStepNo(step.getStepNo());
-            stepExecution.setStepDescription(step.getStepDescription());
-            stepExecution.setAssertionDescription(step.getAssertionDescription());
-            stepExecution.setTestData(step.getTestData());  // 保存测试数据
-            stepExecution.setStatus("pending");
-            stepExecution.setAssertionStatus("none");
-            stepExecution.setAiResult("- 等待执行");
-            stepExecution.setErrorMessage("无");
-            stepExecution.setCreateTime(LocalDateTime.now());
-            stepExecutionService.save(stepExecution);
-        }
-        
-        // 异步执行步骤（批量模式）
+
+        // 异步执行测试用例
         CompletableFuture.runAsync(() -> {
-            long start = System.currentTimeMillis();
-            // 用于累加AI总token消耗
-            long totalAiTokenUsed = 0;
-            
-            try {
-                String executorPath = scriptsDir + java.io.File.separator + executorScript;
-                
-                // 先获取所有历史执行记录，用于后续检查缓存和步骤数据融合
-                List<TestCaseExecution> lastExecutions = executionService.lambdaQuery()
-                    .eq(TestCaseExecution::getCaseId, caseId)
-                    .orderByDesc(TestCaseExecution::getCreateTime)
-                    .list();
-                
-                // 构建步骤 JSON 数组（批量执行）- 使用字符串拼接
-                StringBuilder stepsJson = new StringBuilder("[");
-                for (int i = 0; i < steps.size(); i++) {
-                    TestCaseStep step = steps.get(i);
-                    if (i > 0) stepsJson.append(",");
-                    stepsJson.append("{");
-                    stepsJson.append("\"action\":\"").append(escapeJson(step.getStepDescription())).append("\"");
-                    stepsJson.append(",\"assertion\":\"").append(escapeJson(step.getAssertionDescription() != null ? step.getAssertionDescription() : "")).append("\"");
-                    stepsJson.append(",\"stepNumber\":").append(step.getStepNo());
-                    if (step.getTestData() != null && !step.getTestData().isEmpty()) {
-                        stepsJson.append(",\"testData\":\"").append(escapeJson(step.getTestData())).append("\"");
-                    }
-                    
-                    // 检查是否有历史成功的步骤执行记录，如果有并且步骤描述和测试数据都没有变化，则传递融合后的步骤描述
-                    if (lastExecutions != null && !lastExecutions.isEmpty()) {
-                        for (TestCaseExecution lastExecution : lastExecutions) {
-                            if (lastExecution.getId().equals(execution.getId())) {
-                                continue; // 跳过当前刚创建的执行记录
-                            }
-                            // 查找该步骤的历史执行记录
-                            List<TestStepExecution> lastStepExecutions = stepExecutionService.lambdaQuery()
-                                .eq(TestStepExecution::getExecutionId, lastExecution.getId())
-                                .eq(TestStepExecution::getStepNo, step.getStepNo())
-                                .eq(TestStepExecution::getStatus, "success")
-                                .list();
-                            if (lastStepExecutions != null && !lastStepExecutions.isEmpty()) {
-                                TestStepExecution lastStepExecution = lastStepExecutions.get(0);
-                                // 检查步骤描述和测试数据是否都没有变化
-                                boolean stepDescriptionMatch = step.getStepDescription().equals(lastStepExecution.getStepDescription());
-                                boolean testDataMatch = (step.getTestData() == null && lastStepExecution.getTestData() == null) || 
-                                    (step.getTestData() != null && step.getTestData().equals(lastStepExecution.getTestData()));
-                                if (stepDescriptionMatch && testDataMatch && lastStepExecution.getFusedStepDescription() != null && !lastStepExecution.getFusedStepDescription().isEmpty()) {
-                                    // 传递融合后的步骤描述
-                                    stepsJson.append(",\"fusedStepDescription\":\"").append(escapeJson(lastStepExecution.getFusedStepDescription())).append("\"");
-                                    System.err.println("[INFO] 找到步骤 " + step.getStepNo() + " 的历史融合结果，直接使用: " + lastStepExecution.getFusedStepDescription());
-                                    break; // 找到第一个成功的就可以了
-                                }
-                            }
-                        }
-                    }
-                    
-                    stepsJson.append("}");
-                }
-                stepsJson.append("]");
-                
-                System.err.println("[INFO] 开始批量执行，共 " + steps.size() + " 个步骤");
-                
-                // 检查是否有任何成功的历史执行记录
-                boolean useCache = false;
-                if (lastExecutions != null && !lastExecutions.isEmpty()) {
-                    // 遍历所有历史执行记录，找到第一条成功的（排除当前这条刚创建的）
-                    for (TestCaseExecution exec : lastExecutions) {
-                        // 排除当前这条刚创建的记录（ID相同）
-                        if (!exec.getId().equals(execution.getId()) && "success".equals(exec.getStatus())) {
-                            useCache = true;
-                            System.err.println("[INFO] 找到成功的历史执行记录，启用 Midscene 缓存，执行 ID: " + exec.getId());
-                            break;
-                        }
-                    }
-                    if (!useCache) {
-                        System.err.println("[INFO] 没有找到成功的历史执行记录，禁用 Midscene 缓存");
-                    }
-                } else {
-                    System.err.println("[INFO] 没有找到历史执行记录，禁用 Midscene 缓存");
-                }
-                
-                // 批量执行所有步骤
-                String batchResult = executeStepsBatch(executorPath, stepsJson.toString(), saveTokenMode, caseId, useCache, execution.getId(), steps);
-                
-                // 解析结果并更新步骤执行记录，返回总AI token消耗
-                long[] result = parseAndUpdateResults(batchResult, execution.getId(), steps);
-                boolean allSuccess = (result[0] == 1);
-                totalAiTokenUsed = result[1];
-                int passedCount = (int) result[2];
-                int failedCount = (int) result[3];
-                
-                // 更新执行记录状态
-                long end = System.currentTimeMillis();
-                execution.setDuration(end - start);
-                execution.setEndTime(LocalDateTime.now());
-                execution.setStatus(allSuccess ? "success" : "failed");
-                execution.setAiTotalTokenUsed(totalAiTokenUsed);
-                execution.setPassedCount(passedCount);
-                execution.setFailedCount(failedCount);
-                executionService.updateById(execution);
-                
-                // 如果执行失败，更新所有未完成的步骤状态为失败
-                if (!allSuccess) {
-                    updatePendingStepsToFailed(execution.getId(), "执行失败");
-                }
-                
-                System.err.println("[INFO] 用例执行完成，总耗时：" + (end - start) + "ms, 状态：" + execution.getStatus());
-                
-            } catch (Exception e) {
-                System.err.println("[ERROR] 用例执行失败：" + e.getMessage());
-                e.printStackTrace();
-                
-                // 更新执行记录状态为失败
-                execution.setStatus("failed");
-                execution.setEndTime(LocalDateTime.now());
-                execution.setDescription(execution.getDescription() + " [执行失败：" + e.getMessage() + "]");
-                executionService.updateById(execution);
-                
-                // 更新所有未完成的步骤状态为失败，并设置失败原因
-                updatePendingStepsToFailed(execution.getId(), "执行失败：" + e.getMessage());
-            }
+            executionService.executeTestCase(caseId, "admin", saveTokenMode ? "save" : "standard", taskExecutionId);
         });
         
-        return Result.success("用例开始执行，执行 ID: " + execution.getId());
+        return Result.success("用例开始执行");
     }
     
     /**
@@ -1157,6 +982,16 @@ public class TestCaseExecutionController {
         wrapper.eq(TestStepExecution::getExecutionId, executionId);
         wrapper.orderByAsc(TestStepExecution::getStepNo);
         Page<TestStepExecution> result = stepExecutionService.page(page, wrapper);
+        // 处理截图路径，将绝对路径转换为相对路径
+        String basePath = System.getProperty("user.home") + "/.openclaw/workspace/ui-auto-test-platform/screenshots/";
+        if (result.getRecords() != null) {
+            for (TestStepExecution step : result.getRecords()) {
+                String screenshot = step.getScreenshot();
+                if (screenshot != null && screenshot.startsWith(basePath)) {
+                    step.setScreenshot("/screenshots/" + screenshot.substring(basePath.length()));
+                }
+            }
+        }
         return Result.success(result);
     }
 }

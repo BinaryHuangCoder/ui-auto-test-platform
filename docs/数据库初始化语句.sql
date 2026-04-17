@@ -1,7 +1,7 @@
 -- =====================================================
 -- UI 自动化测试平台数据库初始化脚本
 -- 创建时间: 2026-04-01
--- 更新时间: 2026-04-16
+-- 更新时间: 2026-04-17
 -- 更新说明: 
 -- 1. 添加AI token消耗字段、测试任务表、测试任务与用例关联表、测试任务执行历史表、测试任务执行步骤详情表
 -- 2. 添加sys_system表（应用系统管理）
@@ -12,6 +12,7 @@
 -- 7. 为test_case_step表添加test_data列（测试数据）
 -- 8. 新增模型配置菜单
 -- 9. 为sys_model表添加model_description列（模型描述）
+-- 10. 为test_task表添加concurrency列（并发数，1-10，默认1）
 -- =====================================================
 
 -- 创建数据库
@@ -272,6 +273,7 @@ CREATE TABLE `test_task` (
   `task_no` varchar(50) NOT NULL COMMENT '任务编号(唯一)',
   `task_name` varchar(200) NOT NULL COMMENT '任务名称',
   `cron_expression` varchar(100) DEFAULT NULL COMMENT '定时cron表达式',
+  `concurrency` int(11) DEFAULT 1 COMMENT '并发数（1-10，默认1）',
   `task_config` text COMMENT '任务配置(关联用例、执行参数等)',
   `creator` varchar(50) DEFAULT NULL COMMENT '创建者用户名',
   `status` tinyint(4) DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
