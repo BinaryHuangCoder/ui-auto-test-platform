@@ -51,6 +51,11 @@ public class TestTaskExecution {
     private String executorNickname;
 
     /**
+     * 执行方式：manual-手工触发，scheduled-定时触发
+     */
+    private String executionMode;
+
+    /**
      * 执行时间
      */
     private LocalDateTime executeTime;

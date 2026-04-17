@@ -261,11 +261,12 @@ public class TestTaskController {
      * 立刻执行单个测试任务
      *
      * @param taskId 任务ID
+     * @param executionMode 执行方式：manual-手工触发，scheduled-定时触发（可选，默认manual）
      * @return 执行结果
      */
     @ApiOperation("立刻执行单个测试任务")
     @PostMapping("/run/{taskId}")
-    public Result<Void> runTask(@PathVariable Long taskId) {
+    public Result<Void> runTask(@PathVariable Long taskId, @RequestParam(required = false, defaultValue = "manual") String executionMode) {
         TestTask task = testTaskService.getById(taskId);
         if (task == null) {
             return Result.error("任务不存在");
@@ -275,12 +276,18 @@ public class TestTaskController {
         if (caseIds == null || caseIds.isEmpty()) {
             return Result.error("任务没有关联用例");
         }
+        
+        // 日志调试
+        org.slf4j.Logger logger = org.slf4j.LoggerFactory.getLogger(TestTaskController.class);
+        logger.info("执行任务: {}, 并发数: {}, 关联用例数: {}, 执行方式: {}", 
+            task.getTaskName(), task.getConcurrency(), caseIds.size(), executionMode);
 
         // 创建任务执行记录
         TestTaskExecution taskExecution = new TestTaskExecution();
         taskExecution.setTaskId(taskId);
         taskExecution.setTaskName(task.getTaskName());
         taskExecution.setExecutor("admin");
+        taskExecution.setExecutionMode(executionMode);
         taskExecution.setExecuteTime(LocalDateTime.now());
         taskExecution.setStartTime(LocalDateTime.now());
         taskExecution.setStatus("running");
@@ -385,7 +392,7 @@ public class TestTaskController {
         for (Long taskId : taskIds) {
             CompletableFuture.runAsync(() -> {
                 try {
-                    runTask(taskId);
+                    runTask(taskId, "manual");
                 } catch (Exception e) {
                     e.printStackTrace();
                 }

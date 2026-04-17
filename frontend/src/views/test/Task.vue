@@ -10,8 +10,8 @@
       <div class="table-toolbar">
         <div class="toolbar-left">
           <el-button type="primary" icon="Plus" @click="openDialog('add')">新建任务</el-button>
-          <el-button type="success" icon="VideoPlay" :disabled="!selectedIds.length" @click="batchRun">立刻执行</el-button>
           <el-button type="danger" icon="Delete" :disabled="!selectedIds.length" @click="batchDelete">批量删除</el-button>
+          <el-button type="success" icon="VideoPlay" :disabled="!selectedIds.length" @click="batchRun">立刻执行</el-button>
         </div>
         <div class="toolbar-right">
           <ColumnSettings
@@ -334,6 +334,13 @@
         <el-table-column prop="executor" label="执行人" width="100">
           <template #default="scope">
             {{ scope.row.executorNickname || scope.row.executor || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="executionMode" label="执行方式" width="100">
+          <template #default="scope">
+            <el-tag :type="scope.row.executionMode === 'scheduled' ? 'warning' : 'primary'" size="small">
+              {{ scope.row.executionMode === 'scheduled' ? '定时触发' : '手工触发' }}
+            </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="startTime" label="开始时间" width="170">
